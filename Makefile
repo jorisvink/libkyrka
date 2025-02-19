@@ -1,0 +1,107 @@
+# libkyrka Makefile
+
+CC?=cc
+OBJDIR?=obj
+LIB=libkyrka.a
+LIBNYFE=nyfe/libnyfe.a
+VERSION=$(OBJDIR)/version.c
+
+DESTDIR?=
+PREFIX?=/usr/local
+LIB_DIR=$(PREFIX)/lib
+INCLUDE_DIR=$(PREFIX)/include
+
+CIPHER?=openssl-aes-gcm
+
+CFLAGS+=-std=c99 -pedantic -Wall -Werror -Wstrict-prototypes
+CFLAGS+=-Wmissing-prototypes -Wmissing-declarations -Wshadow
+CFLAGS+=-Wpointer-arith -Wcast-qual -Wsign-compare -O2
+CFLAGS+=-fstack-protector-all -Wtype-limits -fno-common -Iinclude/libkyrka
+CFLAGS+=-Inyfe/include
+CFLAGS+=-g
+
+SRC=	src/kyrka.c \
+	src/cathedral.c \
+	src/kdf.c \
+	src/key.c \
+	src/heaven.c \
+	src/offer.c \
+	src/openssl_evp.c \
+	src/packet.c \
+	src/purgatory.c
+
+ifeq ("$(SANITIZE)", "1")
+	CFLAGS+=-fsanitize=address,undefined
+	LDFLAGS+=-fsanitize=address,undefined
+endif
+
+LDFLAGS+=$(LIBNYFE)
+
+OSNAME=$(shell uname -s | sed -e 's/[-_].*//g' | tr A-Z a-z)
+ifeq ("$(OSNAME)", "linux")
+	CFLAGS+=-DPLATFORM_LINUX
+	CFLAGS+=-D_GNU_SOURCE=1 -U_FORTIFY_SOURCE -D_FORTIFY_SOURCE=2
+else ifeq ("$(OSNAME)", "darwin")
+	CFLAGS+=-DPLATFORM_DARWIN
+else ifeq ("$(OSNAME)", "openbsd")
+	CFLAGS+=-DPLATFORM_OPENBSD
+endif
+
+CFLAGS+=$(shell pkg-config openssl --cflags)
+LDFLAGS+=$(shell pkg-config openssl --libs)
+
+OBJS=	$(SRC:src/%.c=$(OBJDIR)/%.o)
+OBJS+=	$(OBJDIR)/version.o
+
+LIBNYFE_OBJS=	nyfe/obj/sha3.o \
+		nyfe/obj/kmac256.o \
+		nyfe/obj/keccak1600.o \
+		nyfe/obj/agelas.o \
+		nyfe/obj/mem.o \
+		nyfe/obj/random.o \
+		nyfe/obj/file.o
+
+all: $(LIB)
+
+$(LIB): $(OBJDIR) $(LIBNYFE) $(OBJS) $(VERSION)
+	$(AR) rcs $(LIB) $(OBJS) $(LIBNYFE_OBJS)
+
+$(VERSION): $(OBJDIR) force
+	@if [ -f RELEASE ]; then \
+		printf "const char *kyrka_build_rev = \"%s\";\n" \
+		    `cat RELEASE` > $(VERSION); \
+	elif [ -d .git ]; then \
+		GIT_REVISION=`git rev-parse --short=8 HEAD`; \
+		GIT_BRANCH=`git rev-parse --abbrev-ref HEAD`; \
+		rm -f $(VERSION); \
+		printf "const char *kyrka_build_rev = \"%s-%s\";\n" \
+		    $$GIT_BRANCH $$GIT_REVISION > $(VERSION); \
+	else \
+		echo "No version information found (no .git or RELEASE)"; \
+		exit 1; \
+	fi
+	@printf "const char *kyrka_build_date = \"%s\";\n" \
+	    `date +"%Y-%m-%d"` >> $(VERSION);
+
+install:
+	mkdir -p $(DESTDIR)$(LIB_DIR)
+	mkdir -p $(DESTDIR)$(INCLUDE_DIR)
+	install -m 555 $(LIB) $(DESTDIR)$(LIB_DIR)/$(BIN)
+
+$(LIBNYFE):
+	$(MAKE) -C nyfe
+
+src/kyrka.c: $(VERSION)
+
+$(OBJDIR):
+	@mkdir -p $(OBJDIR)
+
+$(OBJDIR)/%.o: src/%.c
+	$(CC) $(CFLAGS) -c $< -o $@
+
+clean:
+	$(MAKE) -C nyfe clean
+	rm -f $(VERSION)
+	rm -rf $(OBJDIR) $(LIB)
+
+.PHONY: all clean force
