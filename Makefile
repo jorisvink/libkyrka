@@ -9,7 +9,7 @@ VERSION=$(OBJDIR)/version.c
 DESTDIR?=
 PREFIX?=/usr/local
 LIB_DIR=$(PREFIX)/lib
-INCLUDE_DIR=$(PREFIX)/include
+INCLUDE_DIR=$(PREFIX)/include/libkyrka
 
 CIPHER?=openssl-aes-gcm
 
@@ -35,8 +35,6 @@ ifeq ("$(SANITIZE)", "1")
 	LDFLAGS+=-fsanitize=address,undefined
 endif
 
-LDFLAGS+=$(LIBNYFE)
-
 OSNAME=$(shell uname -s | sed -e 's/[-_].*//g' | tr A-Z a-z)
 ifeq ("$(OSNAME)", "linux")
 	CFLAGS+=-DPLATFORM_LINUX
@@ -48,7 +46,6 @@ else ifeq ("$(OSNAME)", "openbsd")
 endif
 
 CFLAGS+=$(shell pkg-config openssl --cflags)
-LDFLAGS+=$(shell pkg-config openssl --libs)
 
 OBJS=	$(SRC:src/%.c=$(OBJDIR)/%.o)
 OBJS+=	$(OBJDIR)/version.o
@@ -87,6 +84,7 @@ install:
 	mkdir -p $(DESTDIR)$(LIB_DIR)
 	mkdir -p $(DESTDIR)$(INCLUDE_DIR)
 	install -m 555 $(LIB) $(DESTDIR)$(LIB_DIR)/$(BIN)
+	install -m 644 include/libkyrka/* $(DESTDIR)$(INCLUDE_DIR)
 
 $(LIBNYFE):
 	$(MAKE) -C nyfe
