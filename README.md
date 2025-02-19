@@ -105,14 +105,39 @@ if (kyrka_heaven_ifc(state.tunnel, heaven_send_packet, NULL) == -1)
 
 if (kyrka_purgatory_ifc(state.tunnel, purgatory_send_packet, NULL) == -1)
 	errx(1, "kyrka_purgatory_ifc: %d", kyrka_last_error(ctx));
-
 ```
 
 Your program is responsible for sending/receiving data and feeding
 it to the correct function for encryption (kyrka_heaven_input()) or
 decryption (kyrka_purgatory_input()).
 
+```c
+/* Send hello to our peer. */
+if (kyrka_heaven_input(ctx, "hello", 5) == -1)
+	errx(1, "kyrka_heaven_input: %d", kyrka_last_error(ctx));
+
+/* Submit a received encrypted packet for decryption. */
+if (kyrka_purgatory_input(ctx, pkt, pktlen) == -1)
+	errx(1, "kyrka_purgatory_input: %d", kyrka_last_error(ctx));
+```
+
 Your program is responsible for generating new keys via kyrka_key_generate()
 and offering these to your peer via kyrka_key_offer().
 
-More information will follow later.
+```c
+/* Generate fresh RX key every 3600 seconds. */
+if ((now - last_key) >= 3600) {
+	last_key = now;
+	if (kyrka_key_generate(ctx) == -1)
+		errx(1, "kyrka_key_generate: %d", kyrka_last_error(ctx));
+}
+
+...
+
+/* Send our active key in wrapped form to our peer. */
+if ((now - last_send) >= 10) {
+	last_send = now;
+	if (kyrka_key_offer(ctx) == -1)
+		errx(1, "kyrka_key_offer: %d", kyrka_last_error(ctx));
+}
+```
