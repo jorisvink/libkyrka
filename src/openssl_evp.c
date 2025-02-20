@@ -21,8 +21,6 @@
  * a new EVP_CIPHER_CTX per packet it round key expansion and such is
  * most likely HW accelerated, so the overhead for the allocation
  * and teardown is worth it.
- *
- * If you don't want this overhead, look into using the intel-aes-gcm backend.
  */
 
 #include <sys/types.h>
