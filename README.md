@@ -26,7 +26,8 @@ $ make
 
 The API provides you with only the minimum required functions to
 create a sanctum-based tunnel, it does *not* include network
-functionality or similar. You bring your own.
+functionality or similar. You bring your own. (yes, you could run
+this over serial or USB if you wanted too do so).
 
 First, create a new KYRKA context:
 
