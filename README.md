@@ -141,3 +141,9 @@ if ((now - last_send) >= 10) {
 		errx(1, "kyrka_key_offer: %d", kyrka_last_error(ctx));
 }
 ```
+
+You can choose yourself how often you want to rotate keys and offer
+them to your peer.
+
+When using a cathedral libkyrka can automatically rollover secrets
+using the ambry distributions from the cathedral.
