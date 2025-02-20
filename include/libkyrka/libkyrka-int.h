@@ -19,6 +19,10 @@
 
 #include <sys/queue.h>
 
+#if defined(__ANDROID__)
+#include <sys/endian.h>
+#endif
+
 #include <stdlib.h>
 
 /* Portability for apple devices. */
