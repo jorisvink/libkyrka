@@ -48,6 +48,7 @@
 #define KYRKA_EVENT_TX_EXPIRED		3
 #define KYRKA_EVENT_PEER_UPDATE		4
 #define KYRKA_EVENT_TX_ERASED		5
+#define KYRKA_EVENT_AMBRY_RECEIVED	6
 
 struct kyrka_event_spi_active {
 	u_int32_t			type;
@@ -60,11 +61,17 @@ struct kyrka_event_peer {
 	u_int16_t			port;
 };
 
+struct kyrka_event_ambry {
+	u_int32_t			type;
+	u_int32_t			generation;
+};
+
 union kyrka_event {
 	u_int32_t			type;
 	struct kyrka_event_spi_active	tx;
 	struct kyrka_event_spi_active	rx;
 	struct kyrka_event_peer		peer;
+	struct kyrka_event_ambry	ambry;
 };
 
 /*

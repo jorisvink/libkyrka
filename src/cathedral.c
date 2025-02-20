@@ -271,6 +271,7 @@ static void
 cathedral_ambry_unwrap(struct kyrka *ctx, struct kyrka_ambry_offer *ambry)
 {
 	u_int8_t			len;
+	union kyrka_event		evt;
 	struct nyfe_kmac256		kdf;
 	struct nyfe_agelas		cipher;
 	u_int8_t			tag[KYRKA_AMBRY_TAG_LEN];
@@ -312,4 +313,9 @@ cathedral_ambry_unwrap(struct kyrka *ctx, struct kyrka_ambry_offer *ambry)
 	nyfe_memcpy(ctx->cfg.secret, ambry->key, sizeof(ambry->key));
 
 	ctx->flags |= KYRKA_FLAG_SECRET_SET;
+
+	evt.type = KYRKA_EVENT_AMBRY_RECEIVED;
+	evt.ambry.generation = ctx->cathedral.ambry;
+
+	ctx->event(ctx, &evt, ctx->udata);
 }
