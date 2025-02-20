@@ -1,7 +1,7 @@
 # Kyrka
 
 libkyrka implements the <a href="https://sanctorum.se/sanctum">sanctum</a>
-rotocol in library form allowing you to establish sanctum tunnels directly
+protocol in library form allowing you to establish sanctum tunnels directly
 from your application without the need for the actual daemon.
 
 If you don't know what sanctum is, this isn't for you.
