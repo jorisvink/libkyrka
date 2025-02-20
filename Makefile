@@ -45,7 +45,11 @@ else ifeq ("$(OSNAME)", "openbsd")
 	CFLAGS+=-DPLATFORM_OPENBSD
 endif
 
-CFLAGS+=$(shell pkg-config openssl --cflags)
+ifeq ("$(OPENSSL_PATH)", "")
+	CFLAGS+=$(shell pkg-config openssl --cflags)
+else
+	CFLAGS+=-I$(OPENSSL_PATH)/include
+endif
 
 OBJS=	$(SRC:src/%.c=$(OBJDIR)/%.o)
 OBJS+=	$(OBJDIR)/version.o
