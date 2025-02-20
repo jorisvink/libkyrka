@@ -86,6 +86,7 @@ kyrka_cipher_encrypt(struct kyrka *ctx, void *arg, const void *nonce,
 	struct cipher_aes_gcm	*cipher;
 	u_int8_t		*data, *tag;
 
+	PRECOND(ctx != NULL);
 	PRECOND(arg != NULL);
 	PRECOND(nonce != NULL);
 	PRECOND(aad != NULL);
@@ -166,6 +167,7 @@ kyrka_cipher_decrypt(struct kyrka *ctx, void *arg, const void *nonce,
 	size_t			ctlen, len;
 	u_int8_t		*data, *tag;
 
+	PRECOND(ctx != NULL);
 	PRECOND(arg != NULL);
 	PRECOND(nonce != NULL);
 	PRECOND(aad != NULL);
