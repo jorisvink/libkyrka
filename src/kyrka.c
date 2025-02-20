@@ -84,6 +84,20 @@ kyrka_secret_load(KYRKA *ctx, const char *path)
 }
 
 /*
+ * Perform an "emergency" erase of all data allocated by all KYRKA contexts.
+ * You cannot safely use *ANY* allocated KYRKA context after calling
+ * this function. Use this with caution.
+ *
+ * Ideally you call this from an error handler in your code when you are
+ * going to exit or abort due to a panic.
+ */
+void
+kyrka_emergency_erase(void)
+{
+	nyfe_zeroize_all();
+}
+
+/*
  * Zeroize and free the given KYRKA context.
  */
 void

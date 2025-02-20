@@ -91,6 +91,7 @@ typedef struct kyrka			KYRKA;
 
 void		kyrka_ctx_free(KYRKA *);
 u_int32_t	kyrka_last_error(KYRKA *);
+void		kyrka_emergency_erase(void);
 KYRKA		*kyrka_ctx_alloc(void (*event)(KYRKA *, union kyrka_event *));
 
 int	kyrka_key_offer(KYRKA *);
