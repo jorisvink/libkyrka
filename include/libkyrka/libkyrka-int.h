@@ -41,6 +41,7 @@
 			printf("precondition failed in libkyrka: "	\
 			    "%s:%s:%d\n", __FILE__, __func__,		\
 			    __LINE__);					\
+			kyrka_emergency_erase();			\
 			abort();					\
 		}							\
 	} while (0)
