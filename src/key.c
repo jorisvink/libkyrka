@@ -127,7 +127,8 @@ kyrka_key_offer(struct kyrka *ctx)
 }
 
 /*
- * Attempt to decrypt the given key offer.
+ * Attempt to verify and decrypt the given key offer and install the session
+ * key inside it as the TX key for our peer.
  */
 void
 kyrka_key_unwrap(struct kyrka *ctx, const void *data, size_t len)

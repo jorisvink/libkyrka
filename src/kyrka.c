@@ -84,6 +84,33 @@ kyrka_secret_load(KYRKA *ctx, const char *path)
 }
 
 /*
+ * The application thinks the peer timed out, so we just erase any
+ * installed TX key and send an event back if we did so.
+ */
+int
+kyrka_peer_timeout(KYRKA *ctx)
+{
+	union kyrka_event	evt;
+
+	if (ctx == NULL)
+		return (-1);
+
+	if (ctx->tx.cipher == NULL)
+		return (0);
+
+	kyrka_cipher_cleanup(ctx->tx.cipher);
+	ctx->tx.cipher = NULL;
+
+	if (ctx->event != NULL) {
+		evt.tx.spi = ctx->tx.spi;
+		evt.type = KYRKA_EVENT_TX_ERASED;
+		ctx->event(ctx, &evt);
+	}
+
+	return (0);
+}
+
+/*
  * Perform an "emergency" erase of all data allocated by all KYRKA contexts.
  * You cannot safely use *ANY* allocated KYRKA context after calling
  * this function. Use this with caution.

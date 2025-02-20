@@ -47,6 +47,7 @@
 #define KYRKA_EVENT_RX_ACTIVE		2
 #define KYRKA_EVENT_TX_EXPIRED		3
 #define KYRKA_EVENT_PEER_UPDATE		4
+#define KYRKA_EVENT_TX_ERASED		5
 
 struct kyrka_event_spi_active {
 	u_int32_t			type;
@@ -91,6 +92,7 @@ typedef struct kyrka			KYRKA;
 
 void		kyrka_ctx_free(KYRKA *);
 u_int32_t	kyrka_last_error(KYRKA *);
+int		kyrka_peer_timeout(KYRKA *);
 void		kyrka_emergency_erase(void);
 KYRKA		*kyrka_ctx_alloc(void (*event)(KYRKA *, union kyrka_event *));
 
