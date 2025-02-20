@@ -91,7 +91,7 @@ kyrka_heaven_input(struct kyrka *ctx, const void *data, size_t len)
 		if (ctx->event != NULL) {
 			evt.tx.spi = ctx->tx.spi;
 			evt.type = KYRKA_EVENT_TX_EXPIRED;
-			ctx->event(ctx, &evt);
+			ctx->event(ctx, &evt, ctx->udata);
 		}
 
 		return (-1);

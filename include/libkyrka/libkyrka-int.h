@@ -289,7 +289,8 @@ union kyrka_event;
  */
 struct kyrka {
 	/* Event callback. */
-	void		(*event)(struct kyrka *, union kyrka_event *);
+	void		*udata;
+	void		(*event)(struct kyrka *, union kyrka_event *, void *);
 
 	/* Randomly generated local 64-bit id. */
 	u_int64_t			local_id;

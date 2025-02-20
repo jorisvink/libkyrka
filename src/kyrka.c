@@ -29,7 +29,8 @@
  * Allocate a new KYRKA context that will represent a single sanctum tunnel.
  */
 struct kyrka *
-kyrka_ctx_alloc(void (*event)(struct kyrka *, union kyrka_event *))
+kyrka_ctx_alloc(void (*event)(struct kyrka *, union kyrka_event *, void *),
+    void *udata)
 {
 	struct kyrka		*ctx;
 
@@ -45,6 +46,7 @@ kyrka_ctx_alloc(void (*event)(struct kyrka *, union kyrka_event *))
 	nyfe_random_bytes(ctx->cfg.secret, sizeof(ctx->cfg.secret));
 	nyfe_random_bytes(ctx->cathedral.secret, sizeof(ctx->cathedral.secret));
 
+	ctx->udata = udata;
 	ctx->event = event;
 
 	return (ctx);
@@ -104,7 +106,7 @@ kyrka_peer_timeout(KYRKA *ctx)
 	if (ctx->event != NULL) {
 		evt.tx.spi = ctx->tx.spi;
 		evt.type = KYRKA_EVENT_TX_ERASED;
-		ctx->event(ctx, &evt);
+		ctx->event(ctx, &evt, ctx->udata);
 	}
 
 	return (0);

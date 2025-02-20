@@ -90,11 +90,13 @@ typedef struct kyrka			KYRKA;
  * The public API.
  */
 
-void		kyrka_ctx_free(KYRKA *);
 u_int32_t	kyrka_last_error(KYRKA *);
-int		kyrka_peer_timeout(KYRKA *);
-void		kyrka_emergency_erase(void);
-KYRKA		*kyrka_ctx_alloc(void (*event)(KYRKA *, union kyrka_event *));
+
+void	kyrka_ctx_free(KYRKA *);
+int	kyrka_peer_timeout(KYRKA *);
+void	kyrka_emergency_erase(void);
+KYRKA	*kyrka_ctx_alloc(void (*event)(KYRKA *, union kyrka_event *, void *),
+	    void *);
 
 int	kyrka_key_offer(KYRKA *);
 int	kyrka_key_generate(KYRKA *);

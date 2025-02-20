@@ -62,6 +62,7 @@ kyrka_cathedral_config(struct kyrka *ctx, struct kyrka_cathedral_cfg *cfg)
 	ctx->cfg.spi = cfg->tunnel;
 	ctx->cathedral.flock = cfg->flock;
 	ctx->cathedral.ifc.send = cfg->send;
+	ctx->cathedral.ifc.udata = cfg->udata;
 	ctx->cathedral.identity = cfg->identity;
 
 	if (kyrka_key_load_from_path(ctx, cfg->secret,
@@ -233,7 +234,7 @@ cathedral_p2p_recv(struct kyrka *ctx, struct kyrka_offer *op)
 	evt.peer.ip = info->peer_ip;
 	evt.peer.port = info->peer_port;
 
-	ctx->event(ctx, &evt);
+	ctx->event(ctx, &evt, ctx->udata);
 }
 
 /*
