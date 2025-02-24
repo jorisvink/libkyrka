@@ -101,7 +101,7 @@ kyrka_cathedral_notify(struct kyrka *ctx)
 	if (ctx == NULL)
 		return (-1);
 
-	if (!(ctx->flags & KYRKA_MASK_CATHEDRAL_SET)) {
+	if (!(ctx->flags & KYRKA_FLAG_CATHEDRAL_CONFIG)) {
 		ctx->last_error = KYRKA_ERROR_NO_CONFIG;
 		return (-1);
 	}

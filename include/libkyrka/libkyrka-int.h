@@ -291,10 +291,6 @@ struct kyrka_offer {
 /* If a device KEK was loaded into the context. */
 #define KYRKA_FLAG_DEVICE_KEK		(1 << 3)
 
-/* Mask when we consider a cathedral configured. */
-#define KYRKA_MASK_CATHEDRAL_SET	(KYRKA_FLAG_CATHEDRAL_CONFIG | \
-    KYRKA_FLAG_CATHEDRAL_SECRET | KYRKA_FLAG_DEVICE_KEK)
-
 /* XXX */
 union kyrka_event;
 
