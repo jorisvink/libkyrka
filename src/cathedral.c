@@ -41,6 +41,10 @@ static void	cathedral_ambry_unwrap(struct kyrka *,
  *
  * You specify the callback that is to be used for sending out the
  * cathedral packets.
+ *
+ * Note that the cathedral secret and device KEK paths may be NULL
+ * if you want to load them via kyrka_cathedral_secret_load() and
+ * kyrka_device_kek_load().
  */
 int
 kyrka_cathedral_config(struct kyrka *ctx, struct kyrka_cathedral_cfg *cfg)
@@ -53,8 +57,8 @@ kyrka_cathedral_config(struct kyrka *ctx, struct kyrka_cathedral_cfg *cfg)
 		return (-1);
 	}
 
-	if (cfg->kek == NULL || cfg->secret == NULL || cfg->flock == 0 ||
-	    cfg->tunnel == 0 || cfg->identity == 0 || cfg->send == NULL) {
+	if (cfg->flock == 0 || cfg->tunnel == 0 ||
+	    cfg->identity == 0 || cfg->send == NULL) {
 		ctx->last_error = KYRKA_ERROR_PARAMETER;
 		return (-1);
 	}
@@ -65,15 +69,23 @@ kyrka_cathedral_config(struct kyrka *ctx, struct kyrka_cathedral_cfg *cfg)
 	ctx->cathedral.ifc.udata = cfg->udata;
 	ctx->cathedral.identity = cfg->identity;
 
-	if (kyrka_key_load_from_path(ctx, cfg->secret,
-	    ctx->cathedral.secret, sizeof(ctx->cathedral.secret)) == -1)
-		return (-1);
+	if (cfg->secret != NULL) {
+		if (kyrka_key_load_from_path(ctx, cfg->secret,
+		    ctx->cathedral.secret, sizeof(ctx->cathedral.secret)) == -1)
+			return (-1);
 
-	if (kyrka_key_load_from_path(ctx, cfg->kek,
-	    ctx->cfg.kek, sizeof(ctx->cfg.kek)) == -1)
-		return (-1);
+		ctx->flags |= KYRKA_FLAG_CATHEDRAL_SECRET;
+	}
 
-	ctx->flags |= KYRKA_FLAG_CATHEDRAL_SET;
+	if (cfg->kek != NULL) {
+		if (kyrka_key_load_from_path(ctx, cfg->kek,
+		    ctx->cfg.kek, sizeof(ctx->cfg.kek)) == -1)
+			return (-1);
+
+		ctx->flags |= KYRKA_FLAG_DEVICE_KEK;
+	}
+
+	ctx->flags |= KYRKA_FLAG_CATHEDRAL_CONFIG;
 
 	return (0);
 }
@@ -89,7 +101,12 @@ kyrka_cathedral_notify(struct kyrka *ctx)
 	if (ctx == NULL)
 		return (-1);
 
-	if (!(ctx->flags & KYRKA_FLAG_CATHEDRAL_SET)) {
+	if (!(ctx->flags & KYRKA_MASK_CATHEDRAL_SET)) {
+		ctx->last_error = KYRKA_ERROR_NO_CONFIG;
+		return (-1);
+	}
+
+	if (!(ctx->flags & KYRKA_FLAG_CATHEDRAL_SECRET)) {
 		ctx->last_error = KYRKA_ERROR_NO_SECRET;
 		return (-1);
 	}
@@ -108,7 +125,12 @@ kyrka_cathedral_nat_detection(struct kyrka *ctx)
 	if (ctx == NULL)
 		return (-1);
 
-	if (!(ctx->flags & KYRKA_FLAG_CATHEDRAL_SET)) {
+	if (!(ctx->flags & KYRKA_FLAG_CATHEDRAL_CONFIG)) {
+		ctx->last_error = KYRKA_ERROR_NO_CONFIG;
+		return (-1);
+	}
+
+	if (!(ctx->flags & KYRKA_FLAG_CATHEDRAL_SECRET)) {
 		ctx->last_error = KYRKA_ERROR_NO_SECRET;
 		return (-1);
 	}
@@ -128,12 +150,13 @@ kyrka_cathedral_decrypt(struct kyrka *ctx, const void *data, size_t len)
 
 	PRECOND(ctx != NULL);
 	PRECOND(data != NULL);
-	PRECOND(ctx->flags & KYRKA_FLAG_CATHEDRAL_SET);
 
 	if (len < sizeof(offer))
 		return;
 
-	if (!(ctx->flags & KYRKA_FLAG_CATHEDRAL_SET))
+	if (!(ctx->flags & KYRKA_FLAG_CATHEDRAL_CONFIG) ||
+	    !(ctx->flags & KYRKA_FLAG_CATHEDRAL_SECRET) ||
+	    !(ctx->flags & KYRKA_FLAG_DEVICE_KEK))
 		return;
 
 	nyfe_zeroize_register(&offer, sizeof(offer));
@@ -175,7 +198,8 @@ cathedral_send_info(struct kyrka *ctx, u_int64_t magic)
 	struct nyfe_agelas		cipher;
 
 	PRECOND(ctx != NULL);
-	PRECOND(ctx->flags & KYRKA_FLAG_CATHEDRAL_SET);
+	PRECOND(ctx->flags & KYRKA_FLAG_CATHEDRAL_CONFIG);
+	PRECOND(ctx->flags & KYRKA_FLAG_CATHEDRAL_SECRET);
 	PRECOND(ctx->cathedral.ifc.send != NULL);
 	PRECOND(magic == KYRKA_CATHEDRAL_MAGIC ||
 	    magic == KYRKA_CATHEDRAL_NAT_MAGIC);
@@ -221,7 +245,8 @@ cathedral_p2p_recv(struct kyrka *ctx, struct kyrka_offer *op)
 	PRECOND(ctx != NULL);
 	PRECOND(op != NULL);
 	PRECOND(op->data.type == KYRKA_OFFER_TYPE_INFO);
-	PRECOND(ctx->flags & KYRKA_FLAG_CATHEDRAL_SET);
+	PRECOND(ctx->flags & KYRKA_FLAG_CATHEDRAL_CONFIG);
+	PRECOND(ctx->flags & KYRKA_FLAG_CATHEDRAL_SECRET);
 
 	if (ctx->event == NULL)
 		return;
@@ -250,7 +275,8 @@ cathedral_ambry_recv(struct kyrka *ctx, struct kyrka_offer *op)
 	PRECOND(ctx != NULL);
 	PRECOND(op != NULL);
 	PRECOND(op->data.type == KYRKA_OFFER_TYPE_AMBRY);
-	PRECOND(ctx->flags & KYRKA_FLAG_CATHEDRAL_SET);
+	PRECOND(ctx->flags & KYRKA_FLAG_CATHEDRAL_CONFIG);
+	PRECOND(ctx->flags & KYRKA_FLAG_DEVICE_KEK);
 
 	data = &op->data;
 	tunnel = be16toh(data->offer.ambry.tunnel);
@@ -279,7 +305,8 @@ cathedral_ambry_unwrap(struct kyrka *ctx, struct kyrka_ambry_offer *ambry)
 
 	PRECOND(ctx != NULL);
 	PRECOND(ambry != NULL);
-	PRECOND(ctx->flags & KYRKA_FLAG_CATHEDRAL_SET);
+	PRECOND(ctx->flags & KYRKA_FLAG_CATHEDRAL_CONFIG);
+	PRECOND(ctx->flags & KYRKA_FLAG_DEVICE_KEK);
 
 	nyfe_zeroize_register(okm, sizeof(okm));
 	nyfe_zeroize_register(&kdf, sizeof(kdf));

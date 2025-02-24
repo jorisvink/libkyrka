@@ -17,6 +17,10 @@
 #ifndef __H_LIBKYRKA_H
 #define __H_LIBKYRKA_H
 
+#if defined(__cplusplus)
+extern "C" {
+#endif
+
 /* The magic for cathedral messages (KATEDRAL). */
 #define KYRKA_CATHEDRAL_MAGIC		0x4b4154454452414c
 
@@ -38,6 +42,7 @@
 #define KYRKA_ERROR_NO_RX_KEY		9
 #define KYRKA_ERROR_NO_KEK		10
 #define KYRKA_ERROR_NO_SECRET		11
+#define KYRKA_ERROR_NO_CONFIG		12
 
 /*
  * Events that can occur and can be seen if an event callback was
@@ -108,6 +113,8 @@ KYRKA	*kyrka_ctx_alloc(void (*event)(KYRKA *, union kyrka_event *, void *),
 int	kyrka_key_offer(KYRKA *);
 int	kyrka_key_generate(KYRKA *);
 int	kyrka_secret_load(KYRKA *, const char *);
+int	kyrka_device_kek_load(KYRKA *, const void *, size_t);
+int	kyrka_cathedral_secret_load(KYRKA *, const void *, size_t);
 
 int	kyrka_heaven_ifc(KYRKA *,
 	    void (*cb)(const void *, size_t, u_int64_t, void *), void *);
@@ -120,5 +127,9 @@ int	kyrka_purgatory_input(KYRKA *, const void *, size_t);
 int	kyrka_cathedral_notify(KYRKA *);
 int	kyrka_cathedral_nat_detection(KYRKA *);
 int	kyrka_cathedral_config(KYRKA *, struct kyrka_cathedral_cfg *);
+
+#if defined(__cplusplus)
+}
+#endif
 
 #endif

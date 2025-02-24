@@ -110,8 +110,11 @@ kyrka_purgatory_input(struct kyrka *ctx, const void *data, size_t len)
 
 	if ((spi == (KYRKA_CATHEDRAL_MAGIC >> 32)) &&
 	    (seq == (KYRKA_CATHEDRAL_MAGIC & 0xffffffff))) {
-		if (ctx->flags & KYRKA_FLAG_CATHEDRAL_SET)
+		if ((ctx->flags & KYRKA_FLAG_CATHEDRAL_CONFIG) &&
+		    (ctx->flags & KYRKA_FLAG_CATHEDRAL_SECRET) &&
+		    (ctx->flags & KYRKA_FLAG_DEVICE_KEK)) {
 			kyrka_cathedral_decrypt(ctx, data, len);
+		}
 		return (0);
 	}
 

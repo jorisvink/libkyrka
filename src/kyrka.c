@@ -53,13 +53,11 @@ kyrka_ctx_alloc(void (*event)(struct kyrka *, union kyrka_event *, void *),
 }
 
 /*
- * Load the secret in the given path into our context.
+ * Load a shared secret inside of the given path into our context.
  */
 int
 kyrka_secret_load(KYRKA *ctx, const char *path)
 {
-	int		fd;
-
 	if (ctx == NULL)
 		return (-1);
 
@@ -68,19 +66,57 @@ kyrka_secret_load(KYRKA *ctx, const char *path)
 		return (-1);
 	}
 
-	if ((fd = kyrka_file_open(ctx, path)) == -1)
+	if (kyrka_key_load_from_path(ctx, path,
+	    ctx->cfg.secret, sizeof(ctx->cfg.secret)) == -1)
 		return (-1);
 
-	if (nyfe_file_read(fd, ctx->cfg.secret,
-	    sizeof(ctx->cfg.secret)) != sizeof(ctx->cfg.secret)) {
-		(void)close(fd);
-		ctx->last_error = KYRKA_ERROR_INTERNAL;
+	ctx->flags |= KYRKA_FLAG_SECRET_SET;
+
+	return (0);
+}
+
+/*
+ * Sets the cathedral secret directly by copying in the given secret.
+ * Only call this if you did not specify the secret in the kyrka_cathedral_cfg
+ * data structure when calling kyrka_cathedral_config().
+ */
+int
+kyrka_cathedral_secret_load(KYRKA *ctx, const void *secret, size_t len)
+{
+	if (ctx == NULL)
+		return (-1);
+
+	if (secret == NULL || len != KYRKA_KEY_LENGTH) {
+		ctx->last_error = KYRKA_ERROR_PARAMETER;
 		return (-1);
 	}
 
-	(void)close(fd);
+	nyfe_memcpy(ctx->cathedral.secret, secret, len);
 
-	ctx->flags |= KYRKA_FLAG_SECRET_SET;
+	ctx->flags |= KYRKA_FLAG_CATHEDRAL_SECRET;
+
+	return (0);
+}
+
+/*
+ * Sets the device KEK secret directly by copying in the given secret.
+ * Only call this if you did not specify the kek in the kyrka_cathedral_cfg
+ * data structure when calling kyrka_cathedral_config().
+ */
+int
+kyrka_device_kek_load(KYRKA *ctx, const void *secret, size_t len)
+{
+	if (ctx == NULL)
+		return (-1);
+
+	if (secret == NULL || len != KYRKA_KEY_LENGTH) {
+		ctx->last_error = KYRKA_ERROR_PARAMETER;
+		return (-1);
+	}
+
+	nyfe_memcpy(ctx->cfg.kek, secret, len);
+
+	ctx->flags |= KYRKA_FLAG_DEVICE_KEK;
 
 	return (0);
 }
