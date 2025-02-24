@@ -148,3 +148,15 @@ them to your peer.
 
 When using a cathedral libkyrka can automatically rollover secrets
 using the ambry distributions from the cathedral.
+
+## Caveats
+
+Due to its use of libnyfe underneath you will need to implement
+a fatal() function in your code. I never got around to making
+libnyfe a proper lib, maybe one day.
+
+```c
+void fatal(const char *fmt, ...);
+```
+
+This fatal() function must call nyfe_zeroize_all() followed by an exit().
