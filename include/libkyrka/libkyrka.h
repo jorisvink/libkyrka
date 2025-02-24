@@ -58,6 +58,7 @@ extern "C" {
 struct kyrka_event_spi_active {
 	u_int32_t			type;
 	u_int32_t			spi;
+	u_int64_t			id;
 };
 
 struct kyrka_event_peer {

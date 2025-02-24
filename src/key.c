@@ -63,6 +63,7 @@ kyrka_key_generate(struct kyrka *ctx)
 
 	if (ctx->event != NULL) {
 		evt.rx.spi = ctx->rx.spi;
+		evt.rx.id = ctx->local_id;
 		evt.type = KYRKA_EVENT_RX_ACTIVE;
 		ctx->event(ctx, &evt, ctx->udata);
 	}
@@ -187,6 +188,7 @@ kyrka_key_unwrap(struct kyrka *ctx, const void *data, size_t len)
 	next = NULL;
 
 	if (ctx->event != NULL) {
+		evt.tx.id = key->id;
 		evt.tx.spi = offer.hdr.spi;
 		evt.type = KYRKA_EVENT_TX_ACTIVE;
 		ctx->event(ctx, &evt, ctx->udata);
