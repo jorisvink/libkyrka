@@ -116,7 +116,7 @@ rector_config_write(const char *path, struct config *cfg)
 	if (close(fd) == -1) {
 		saved_errno = errno;
 		(void)unlink(path);
-		fatal("failed to write %s: %d", saved_errno);
+		fatal("failed to write %s: %d", path, saved_errno);
 	}
 }
 
