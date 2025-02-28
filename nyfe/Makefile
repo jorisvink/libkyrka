@@ -42,6 +42,18 @@ $(OBJDIR):
 $(OBJDIR)/%.o: src/%.c
 	$(CC) $(CFLAGS) -c $< -o $@
 
+sync:
+	@if [ -z "$(NYFE)" ]; then \
+		echo "No NYFE path has been set"; \
+		exit 1; \
+	fi
+	@for src in $(SRC); do \
+		cp $(NYFE)/$${src} src; \
+	done
+	@cp $(NYFE)/include/libnyfe.h include
+	@echo -n "nyfe synced from $(NYFE) "
+	@echo "$(shell cd $(NYFE) && git rev-parse --short=8 HEAD)"
+
 clean:
 	rm -rf $(OBJDIR) $(LIB)
 
