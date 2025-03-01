@@ -61,7 +61,10 @@ void
 usage(void)
 {
 	printf("rector: [tunnnel] [flock] [device] [kek] [cathedral] [out]\n");
-	printf("Will always attempt to write to libkyrka.cfg.\n");
+	printf("\n");
+	printf("Creates a configuration file that can be used with certain\n");
+	printf("types of applications using sanctum.\n");
+
 	exit(1);
 }
 
