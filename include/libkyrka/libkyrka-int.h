@@ -352,6 +352,10 @@ struct kyrka {
 #include "libkyrka.h"
 #include "libnyfe.h"
 
+/* The build date and revision. */
+extern const char	*kyrka_build_rev;
+extern const char	*kyrka_build_date;
+
 /* cipher interfaces. */
 size_t	kyrka_cipher_overhead(void);
 void	kyrka_cipher_cleanup(void *);

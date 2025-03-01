@@ -26,6 +26,21 @@
 #include "libkyrka-int.h"
 
 /*
+ * Returns the libkyrka its version string, including the build date and
+ * the revision it was compiled from.
+ */
+const char *
+kyrka_version(void)
+{
+	static char	version[128];
+
+	(void)snprintf(version, sizeof(version), "%s (%s)",
+	    kyrka_build_rev, kyrka_build_date);
+
+	return (version);
+}
+
+/*
  * Allocate a new KYRKA context that will represent a single sanctum tunnel.
  */
 struct kyrka *

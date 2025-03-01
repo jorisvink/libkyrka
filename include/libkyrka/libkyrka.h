@@ -103,6 +103,7 @@ typedef struct kyrka			KYRKA;
  * The public API.
  */
 
+const char	*kyrka_version(void);
 u_int32_t	kyrka_last_error(KYRKA *);
 
 void	kyrka_ctx_free(KYRKA *);
