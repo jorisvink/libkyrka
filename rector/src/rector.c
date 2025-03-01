@@ -18,34 +18,50 @@
 
 #include <errno.h>
 #include <fcntl.h>
+#include <paths.h>
 #include <stdarg.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <termios.h>
 #include <unistd.h>
+
+#define RECTOR_KEY_LEN			64
+#define RECTOR_SALT_LEN			32
+#define RECTOR_TAG_LEN			32
+
+#define NYFE_PASSPHRASE_DERIVE_LABEL	"RECTOR.PASSPHRASE.PBKDF"
 
 #include "libnyfe.h"
 
 struct config {
-	u_int32_t	id;
-	u_int64_t	flock;
-	u_int16_t	tunnel;
-	u_int8_t	kek[32];
-	u_int8_t	secret[32];
+	u_int8_t	salt[RECTOR_SALT_LEN];
+
+	struct {
+		u_int32_t	id;
+		u_int64_t	flock;
+		u_int16_t	tunnel;
+		u_int8_t	kek[32];
+		u_int8_t	secret[32];
+	} data;
+
+	u_int8_t	tag[RECTOR_TAG_LEN];
 } __attribute__((packed));
 
 void		usage(void) __attribute__((noreturn));
 void		fatal(const char *, ...) __attribute__((noreturn));
 
 u_int64_t	rector_strtonum(const char *, int);
+void		rector_wrap_config(struct config *);
+void		rector_read_passphrase(void *, size_t);
 void		rector_config_write(const char *, struct config *);
 void		rector_read_secret(const char *, u_int8_t *, size_t);
 
 void
 usage(void)
 {
-	printf("rector: [tunnnel] [flock] [device] [kek] [cathedral]\n");
-	printf("Will always attempt to write to libkyrka.cfg\n");
+	printf("rector: [tunnnel] [flock] [device] [kek] [cathedral] [out]\n");
+	printf("Will always attempt to write to libkyrka.cfg.\n");
 	exit(1);
 }
 
@@ -70,21 +86,23 @@ main(int argc, char *argv[])
 {
 	struct config		cfg;
 
-	if (argc != 6)
+	if (argc != 7)
 		usage();
 
-	memset(&cfg, 0, sizeof(cfg));
+	nyfe_random_init();
 
+	memset(&cfg, 0, sizeof(cfg));
 	nyfe_zeroize_register(&cfg, sizeof(cfg));
 
-	cfg.tunnel = rector_strtonum(argv[1], 16);
-	cfg.flock = rector_strtonum(argv[2], 16);
-	cfg.id = rector_strtonum(argv[3], 16);
+	cfg.data.tunnel = rector_strtonum(argv[1], 16);
+	cfg.data.flock = rector_strtonum(argv[2], 16);
+	cfg.data.id = rector_strtonum(argv[3], 16);
 
-	rector_read_secret(argv[4], cfg.kek, sizeof(cfg.kek));
-	rector_read_secret(argv[5], cfg.secret, sizeof(cfg.secret));
+	rector_read_secret(argv[4], cfg.data.kek, sizeof(cfg.data.kek));
+	rector_read_secret(argv[5], cfg.data.secret, sizeof(cfg.data.secret));
 
-	rector_config_write("libkyrka.cfg", &cfg);
+	rector_wrap_config(&cfg);
+	rector_config_write(argv[6], &cfg);
 
 	nyfe_zeroize(&cfg, sizeof(cfg));
 
@@ -127,7 +145,7 @@ rector_read_secret(const char *path, u_int8_t *secret, size_t len)
 	size_t		ret;
 
 	if (len != 32)
-		fatal("invalid length of %zu given", len);
+		fatal("read: invalid length of %zu given", len);
 
 	fd = nyfe_file_open(path, NYFE_FILE_READ);
 
@@ -135,4 +153,82 @@ rector_read_secret(const char *path, u_int8_t *secret, size_t len)
 		fatal("failed to read secret (%zu/%zu)", ret, len);
 
 	(void)close(fd);
+}
+
+void
+rector_wrap_config(struct config *cfg)
+{
+	struct nyfe_agelas	cipher;
+	u_int8_t		okm[RECTOR_KEY_LEN], passphrase[256];
+
+	nyfe_random_bytes(cfg->salt, sizeof(cfg->salt));
+
+	nyfe_zeroize_register(okm, sizeof(okm));
+	nyfe_zeroize_register(&cipher, sizeof(cipher));
+	nyfe_zeroize_register(passphrase, sizeof(passphrase));
+
+	nyfe_mem_zero(passphrase, sizeof(passphrase));
+	rector_read_passphrase(passphrase, sizeof(passphrase));
+
+	nyfe_passphrase_kdf(passphrase, sizeof(passphrase),
+	    cfg->salt, sizeof(cfg->salt), okm, sizeof(okm));
+	nyfe_zeroize(passphrase, sizeof(passphrase));
+
+	nyfe_agelas_init(&cipher, okm, sizeof(okm));
+	nyfe_zeroize(okm, sizeof(okm));
+
+	nyfe_agelas_aad(&cipher, cfg->salt, sizeof(cfg->salt));
+	nyfe_agelas_encrypt(&cipher, &cfg->data, &cfg->data, sizeof(cfg->data));
+	nyfe_agelas_authenticate(&cipher, cfg->tag, sizeof(cfg->tag));
+
+	nyfe_zeroize(&cipher, sizeof(cipher));
+}
+
+void
+rector_read_passphrase(void *buf, size_t len)
+{
+	int			fd;
+	size_t			off;
+	u_int8_t		*ptr;
+	struct termios		cur, old;
+
+	if ((fd = open(_PATH_TTY, O_RDWR)) == -1)
+		fatal("open(%s): %s", _PATH_TTY, strerror(errno));
+
+	if (tcgetattr(fd, &old) == -1)
+		fatal("tcgetattr: %s", strerror(errno));
+
+	cur = old;
+	cur.c_lflag &= ~(ECHO | ECHONL);
+
+	if (tcsetattr(fd, TCSAFLUSH, &cur) == -1) {
+		(void)tcsetattr(fd, TCSANOW, &old);
+		fatal("tcsetattr: %s", strerror(errno));
+	}
+
+	fprintf(stderr, "passphrase: ");
+	fflush(stderr);
+
+	off = 0;
+	ptr = buf;
+
+	while (off != (len - 1)) {
+		if (read(fd, &ptr[off], 1) == -1) {
+			if (errno == EINTR)
+				continue;
+			fatal("%s: read failed: %s", __func__, strerror(errno));
+		}
+
+		if (ptr[off] == '\n')
+			break;
+
+		off++;
+	}
+
+	ptr[off] = '\0';
+
+	if (tcsetattr(fd, TCSANOW, &old) == -1)
+		fatal("tcsetattr: %s", strerror(errno));
+
+	fprintf(stderr, "\n");
 }
