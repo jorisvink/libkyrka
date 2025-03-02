@@ -63,7 +63,6 @@ LIBNYFE_OBJS=	nyfe/obj/sha3.o \
 		nyfe/obj/file.o
 
 all: $(LIB)
-	$(MAKE) -C rector
 
 $(LIB): $(OBJDIR) $(LIBNYFE) $(OBJS) $(VERSION)
 	$(AR) rcs $(LIB) $(OBJS) $(LIBNYFE_OBJS)
@@ -104,7 +103,6 @@ $(OBJDIR)/%.o: src/%.c
 
 clean:
 	$(MAKE) -C nyfe clean
-	$(MAKE) -C rector clean
 	rm -f $(VERSION)
 	rm -rf $(OBJDIR) $(LIB)
 
