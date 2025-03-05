@@ -106,6 +106,9 @@
 /* Anti-replay window size. */
 #define KYRKA_ARWIN_SIZE		64
 
+/* The amount of peers per flock. */
+#define KYRKA_PEERS_PER_FLOCK		255
+
 /*
  * The ambry header, just 4 bytes that denotes the generation.
  */
@@ -262,6 +265,11 @@ struct kyrka_info_offer {
 	u_int32_t		ambry_generation;
 } __attribute__((packed));
 
+struct sanctum_liturgy_offer {
+	u_int8_t		id;
+	u_int8_t		peers[KYRKA_PEERS_PER_FLOCK];
+} __attribute__((packed));
+
 struct kyrka_offer_data {
 	u_int8_t		type;
 	u_int64_t		timestamp;
@@ -270,6 +278,7 @@ struct kyrka_offer_data {
 		struct kyrka_key_offer		key;
 		struct kyrka_info_offer		info;
 		struct kyrka_ambry_offer	ambry;
+		struct sanctum_liturgy_offer	liturgy;
 	} offer;
 } __attribute__((packed));
 
