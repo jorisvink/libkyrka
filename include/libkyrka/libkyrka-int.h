@@ -230,6 +230,7 @@ struct kyrka_ifc {
 #define KYRKA_OFFER_TYPE_KEY		1
 #define KYRKA_OFFER_TYPE_AMBRY		2
 #define KYRKA_OFFER_TYPE_INFO		3
+#define KYRKA_OFFER_TYPE_LITURGY	4
 
 struct kyrka_offer_hdr {
 	u_int64_t		magic;
@@ -265,7 +266,7 @@ struct kyrka_info_offer {
 	u_int32_t		ambry_generation;
 } __attribute__((packed));
 
-struct sanctum_liturgy_offer {
+struct kyrka_liturgy_offer {
 	u_int8_t		id;
 	u_int8_t		peers[KYRKA_PEERS_PER_FLOCK];
 } __attribute__((packed));
@@ -278,7 +279,7 @@ struct kyrka_offer_data {
 		struct kyrka_key_offer		key;
 		struct kyrka_info_offer		info;
 		struct kyrka_ambry_offer	ambry;
-		struct sanctum_liturgy_offer	liturgy;
+		struct kyrka_liturgy_offer	liturgy;
 	} offer;
 } __attribute__((packed));
 

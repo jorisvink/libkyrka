@@ -28,8 +28,9 @@
 
 #define CATHEDRAL_OFFER_VALID		5
 
-static int	cathedral_send_info(struct kyrka *, u_int64_t);
+static int	cathedral_send_offer(struct kyrka *, u_int64_t);
 static void	cathedral_p2p_recv(struct kyrka *, struct kyrka_offer *);
+static void	cathedral_liturgy_recv(struct kyrka *, struct kyrka_offer *);
 static void	cathedral_ambry_recv(struct kyrka *, struct kyrka_offer *);
 static void	cathedral_ambry_unwrap(struct kyrka *,
 		    struct kyrka_ambry_offer *);
@@ -111,7 +112,7 @@ kyrka_cathedral_notify(struct kyrka *ctx)
 		return (-1);
 	}
 
-	return (cathedral_send_info(ctx, KYRKA_CATHEDRAL_MAGIC));
+	return (cathedral_send_offer(ctx, KYRKA_CATHEDRAL_MAGIC));
 }
 
 /*
@@ -135,7 +136,31 @@ kyrka_cathedral_nat_detection(struct kyrka *ctx)
 		return (-1);
 	}
 
-	return (cathedral_send_info(ctx, KYRKA_CATHEDRAL_NAT_MAGIC));
+	return (cathedral_send_offer(ctx, KYRKA_CATHEDRAL_NAT_MAGIC));
+}
+
+/*
+ * Generates a LITURGY message for the configured cathedral and
+ * gives the packet to the cathedral callback allowing the caller
+ * to send it to the cathedral by whatever means.
+ */
+int
+kyrka_cathedral_liturgy(struct kyrka *ctx)
+{
+	if (ctx == NULL)
+		return (-1);
+
+	if (!(ctx->flags & KYRKA_FLAG_CATHEDRAL_CONFIG)) {
+		ctx->last_error = KYRKA_ERROR_NO_CONFIG;
+		return (-1);
+	}
+
+	if (!(ctx->flags & KYRKA_FLAG_CATHEDRAL_SECRET)) {
+		ctx->last_error = KYRKA_ERROR_NO_SECRET;
+		return (-1);
+	}
+
+	return (cathedral_send_offer(ctx, KYRKA_CATHEDRAL_LITURGY_MAGIC));
 }
 
 /*
@@ -179,6 +204,9 @@ kyrka_cathedral_decrypt(struct kyrka *ctx, const void *data, size_t len)
 	case KYRKA_OFFER_TYPE_INFO:
 		cathedral_p2p_recv(ctx, &offer);
 		break;
+	case KYRKA_OFFER_TYPE_LITURGY:
+		cathedral_liturgy_recv(ctx, &offer);
+		break;
 	}
 
 cleanup:
@@ -187,32 +215,57 @@ cleanup:
 }
 
 /*
- * Send a packet to the cathedral with the right magic header.
+ * Send an offer packet to the cathedral which is one of two choices:
+ *	1) info, containing our amry generation and tunnel.
+ *	2) liturgy, containing our tunnel id.
  */
 static int
-cathedral_send_info(struct kyrka *ctx, u_int64_t magic)
+cathedral_send_offer(struct kyrka *ctx, u_int64_t magic)
 {
 	struct kyrka_packet		pkt;
 	struct kyrka_offer		*op;
+	u_int8_t			type;
 	struct kyrka_info_offer		*info;
 	struct nyfe_agelas		cipher;
+	struct kyrka_liturgy_offer	*liturgy;
 
 	PRECOND(ctx != NULL);
 	PRECOND(ctx->flags & KYRKA_FLAG_CATHEDRAL_CONFIG);
 	PRECOND(ctx->flags & KYRKA_FLAG_CATHEDRAL_SECRET);
 	PRECOND(ctx->cathedral.ifc.send != NULL);
 	PRECOND(magic == KYRKA_CATHEDRAL_MAGIC ||
-	    magic == KYRKA_CATHEDRAL_NAT_MAGIC);
+	    magic == KYRKA_CATHEDRAL_NAT_MAGIC ||
+	    magic == KYRKA_CATHEDRAL_LITURGY_MAGIC);
 
-	op = kyrka_offer_init(&pkt,
-	    ctx->cathedral.identity, magic, KYRKA_OFFER_TYPE_INFO);
+	switch (magic) {
+	case KYRKA_CATHEDRAL_MAGIC:
+		type = KYRKA_OFFER_TYPE_INFO;
+		break;
+	case KYRKA_CATHEDRAL_NAT_MAGIC:
+		type = KYRKA_OFFER_TYPE_INFO;
+		break;
+	case KYRKA_CATHEDRAL_LITURGY_MAGIC:
+		type = KYRKA_OFFER_TYPE_LITURGY;
+		break;
+	default:
+		ctx->last_error = KYRKA_ERROR_INTERNAL;
+		return (-1);
+	}
+
+	op = kyrka_offer_init(&pkt, ctx->cathedral.identity, magic, type);
 	op->hdr.flock = htobe64(ctx->cathedral.flock);
 
-	info = &op->data.offer.info;
-	nyfe_mem_zero(info, sizeof(*info));
+	if (magic != KYRKA_CATHEDRAL_LITURGY_MAGIC) {
+		info = &op->data.offer.info;
+		nyfe_mem_zero(info, sizeof(*info));
 
-	info->tunnel = htobe16(ctx->cfg.spi);
-	info->ambry_generation = htobe32(ctx->cathedral.ambry);
+		info->tunnel = htobe16(ctx->cfg.spi);
+		info->ambry_generation = htobe32(ctx->cathedral.ambry);
+	} else {
+		liturgy = &op->data.offer.liturgy;
+		nyfe_mem_zero(liturgy, sizeof(*liturgy));
+		liturgy->id = ctx->cfg.spi;
+	}
 
 	nyfe_zeroize_register(&cipher, sizeof(cipher));
 
@@ -258,6 +311,30 @@ cathedral_p2p_recv(struct kyrka *ctx, struct kyrka_offer *op)
 	evt.type = KYRKA_EVENT_PEER_UPDATE;
 	evt.peer.ip = info->peer_ip;
 	evt.peer.port = info->peer_port;
+
+	ctx->event(ctx, &evt, ctx->udata);
+}
+
+/*
+ * We received a response to a liturgy request. Call the event callback
+ * with the liturgy information.
+ */
+static void
+cathedral_liturgy_recv(struct kyrka *ctx, struct kyrka_offer *op)
+{
+	union kyrka_event		evt;
+	struct kyrka_liturgy_offer	*liturgy;
+
+	PRECOND(ctx != NULL);
+	PRECOND(op != NULL);
+
+	if (ctx->event == NULL)
+		return;
+
+	liturgy = &op->data.offer.liturgy;
+
+	evt.type = KYRKA_EVENT_LITURGY_RECEIVED;
+	memcpy(evt.liturgy.peers, liturgy->peers, sizeof(liturgy->peers));
 
 	ctx->event(ctx, &evt, ctx->udata);
 }

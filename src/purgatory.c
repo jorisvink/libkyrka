@@ -53,10 +53,13 @@ kyrka_purgatory_ifc(struct kyrka *ctx,
 
 /*
  * A bunch of data is given as input from purgatory and shall be
- * verified and decrypted under the current RX key (if any).
+ * verified and decrypted under the current RX key (if any) or
+ * under a shared cathedral secret if the packet indicated it
+ * might be a cathedral packet.
  *
- * When successful the plaintext data shall be given to heaven
- * via the heaven "virtual interface".
+ * If a packet was successfully verified and decrypted and the
+ * packet was not a cathedral message, we call the heaven
+ * "virtual interface" with the plaintext data.
  */
 int
 kyrka_purgatory_input(struct kyrka *ctx, const void *data, size_t len)
@@ -73,16 +76,6 @@ kyrka_purgatory_input(struct kyrka *ctx, const void *data, size_t len)
 
 	if (data == NULL || len == 0 || len > KYRKA_PACKET_DATA_LEN) {
 		ctx->last_error = KYRKA_ERROR_PARAMETER;
-		return (-1);
-	}
-
-	if (ctx->heaven.send == NULL) {
-		ctx->last_error = KYRKA_ERROR_NO_CALLBACK;
-		return (-1);
-	}
-
-	if (ctx->rx.cipher == NULL) {
-		ctx->last_error = KYRKA_ERROR_NO_RX_KEY;
 		return (-1);
 	}
 
@@ -108,14 +101,26 @@ kyrka_purgatory_input(struct kyrka *ctx, const void *data, size_t len)
 		return (0);
 	}
 
-	if ((spi == (KYRKA_CATHEDRAL_MAGIC >> 32)) &&
-	    (seq == (KYRKA_CATHEDRAL_MAGIC & 0xffffffff))) {
+	if (((spi == (KYRKA_CATHEDRAL_MAGIC >> 32)) &&
+	    (seq == (KYRKA_CATHEDRAL_MAGIC & 0xffffffff))) ||
+	    ((spi == (KYRKA_CATHEDRAL_LITURGY_MAGIC >> 32)) &&
+	    (seq == (KYRKA_CATHEDRAL_LITURGY_MAGIC & 0xffffffff)))) {
 		if ((ctx->flags & KYRKA_FLAG_CATHEDRAL_CONFIG) &&
 		    (ctx->flags & KYRKA_FLAG_CATHEDRAL_SECRET) &&
 		    (ctx->flags & KYRKA_FLAG_DEVICE_KEK)) {
 			kyrka_cathedral_decrypt(ctx, data, len);
 		}
 		return (0);
+	}
+
+	if (ctx->heaven.send == NULL) {
+		ctx->last_error = KYRKA_ERROR_NO_CALLBACK;
+		return (-1);
+	}
+
+	if (ctx->rx.cipher == NULL) {
+		ctx->last_error = KYRKA_ERROR_NO_RX_KEY;
+		return (-1);
 	}
 
 	if (spi != ctx->rx.spi)

@@ -36,7 +36,8 @@ kyrka_offer_init(struct kyrka_packet *pkt, u_int32_t spi,
 	PRECOND(pkt != NULL);
 	PRECOND(type == KYRKA_OFFER_TYPE_KEY ||
 	    type == KYRKA_OFFER_TYPE_AMBRY ||
-	    type == KYRKA_OFFER_TYPE_INFO);
+	    type == KYRKA_OFFER_TYPE_INFO ||
+	    type == KYRKA_OFFER_TYPE_LITURGY);
 
 	op = kyrka_packet_head(pkt);
 

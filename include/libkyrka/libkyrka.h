@@ -27,6 +27,12 @@ extern "C" {
 /* The magic for NAT detection messages (CIBORIUM). */
 #define KYRKA_CATHEDRAL_NAT_MAGIC	0x4349424f5249554d
 
+/* The magic for cathedral liturgy messages (LITURGY) */
+#define KYRKA_CATHEDRAL_LITURGY_MAGIC	0x004C495455524759
+
+/* The amount of peers per flock. */
+#define KYRKA_PEERS_PER_FLOCK		255
+
 /*
  * Library error codes.
  */
@@ -54,6 +60,7 @@ extern "C" {
 #define KYRKA_EVENT_PEER_UPDATE		4
 #define KYRKA_EVENT_TX_ERASED		5
 #define KYRKA_EVENT_AMBRY_RECEIVED	6
+#define KYRKA_EVENT_LITURGY_RECEIVED	7
 
 struct kyrka_event_spi_active {
 	u_int32_t			type;
@@ -72,12 +79,18 @@ struct kyrka_event_ambry {
 	u_int32_t			generation;
 };
 
+struct kyrka_event_liturgy {
+	u_int32_t			type;
+	u_int8_t			peers[KYRKA_PEERS_PER_FLOCK];
+};
+
 union kyrka_event {
 	u_int32_t			type;
 	struct kyrka_event_spi_active	tx;
 	struct kyrka_event_spi_active	rx;
 	struct kyrka_event_peer		peer;
 	struct kyrka_event_ambry	ambry;
+	struct kyrka_event_liturgy	liturgy;
 };
 
 /*
@@ -127,6 +140,7 @@ int	kyrka_purgatory_ifc(KYRKA *,
 int	kyrka_purgatory_input(KYRKA *, const void *, size_t);
 
 int	kyrka_cathedral_notify(KYRKA *);
+int	kyrka_cathedral_liturgy(KYRKA *);
 int	kyrka_cathedral_nat_detection(KYRKA *);
 int	kyrka_cathedral_config(KYRKA *, struct kyrka_cathedral_cfg *);
 
