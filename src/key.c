@@ -104,6 +104,9 @@ kyrka_key_offer(struct kyrka *ctx)
 	op = kyrka_offer_init(&pkt, ctx->offer.spi,
 	    KYRKA_KEY_OFFER_MAGIC, KYRKA_OFFER_TYPE_KEY);
 
+	if (ctx->flags & KYRKA_FLAG_CATHEDRAL_CONFIG)
+		op->hdr.flock = htobe64(ctx->cathedral.flock);
+
 	nyfe_zeroize_register(&cipher, sizeof(cipher));
 
 	if (kyrka_cipher_kdf(ctx, ctx->cfg.secret, sizeof(ctx->cfg.secret),
