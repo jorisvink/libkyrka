@@ -66,6 +66,7 @@ kyrka_cathedral_config(struct kyrka *ctx, struct kyrka_cathedral_cfg *cfg)
 
 	ctx->cfg.spi = cfg->tunnel;
 	ctx->cathedral.flock = cfg->flock;
+	ctx->cathedral.group = cfg->group;
 	ctx->cathedral.ifc.send = cfg->send;
 	ctx->cathedral.ifc.udata = cfg->udata;
 	ctx->cathedral.identity = cfg->identity;
@@ -245,6 +246,7 @@ cathedral_send_offer(struct kyrka *ctx, u_int64_t magic)
 		type = KYRKA_OFFER_TYPE_INFO;
 		break;
 	case KYRKA_CATHEDRAL_LITURGY_MAGIC:
+		magic = KYRKA_CATHEDRAL_MAGIC;
 		type = KYRKA_OFFER_TYPE_LITURGY;
 		break;
 	default:
@@ -255,7 +257,7 @@ cathedral_send_offer(struct kyrka *ctx, u_int64_t magic)
 	op = kyrka_offer_init(&pkt, ctx->cathedral.identity, magic, type);
 	op->hdr.flock = htobe64(ctx->cathedral.flock);
 
-	if (magic != KYRKA_CATHEDRAL_LITURGY_MAGIC) {
+	if (type != KYRKA_OFFER_TYPE_LITURGY) {
 		info = &op->data.offer.info;
 		nyfe_mem_zero(info, sizeof(*info));
 
@@ -267,6 +269,7 @@ cathedral_send_offer(struct kyrka *ctx, u_int64_t magic)
 		liturgy = &op->data.offer.liturgy;
 		nyfe_mem_zero(liturgy, sizeof(*liturgy));
 		liturgy->id = ctx->cfg.spi;
+		liturgy->group = htobe16(ctx->cathedral.group);
 	}
 
 	nyfe_zeroize_register(&cipher, sizeof(cipher));
@@ -334,6 +337,10 @@ cathedral_liturgy_recv(struct kyrka *ctx, struct kyrka_offer *op)
 		return;
 
 	liturgy = &op->data.offer.liturgy;
+	liturgy->group = be16toh(liturgy->group);
+
+	if (liturgy->group != ctx->cathedral.group)
+		return;
 
 	evt.type = KYRKA_EVENT_LITURGY_RECEIVED;
 	memcpy(evt.liturgy.peers, liturgy->peers, sizeof(liturgy->peers));

@@ -103,6 +103,7 @@ struct kyrka_cathedral_cfg {
 	const char	*secret;
 
 	u_int64_t	flock;
+	u_int16_t	group;
 	u_int16_t	tunnel;
 	u_int32_t	identity;
 
