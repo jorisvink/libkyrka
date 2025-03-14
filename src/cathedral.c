@@ -168,7 +168,7 @@ kyrka_cathedral_liturgy(struct kyrka *ctx)
  * Internal function to help decrypt a cathedral message that arrived
  * from the purgatory side via kyrka_purgatory_input().
  */
-void
+int
 kyrka_cathedral_decrypt(struct kyrka *ctx, const void *data, size_t len)
 {
 	struct kyrka_offer	offer;
@@ -177,13 +177,16 @@ kyrka_cathedral_decrypt(struct kyrka *ctx, const void *data, size_t len)
 	PRECOND(ctx != NULL);
 	PRECOND(data != NULL);
 
-	if (len < sizeof(offer))
-		return;
+	if (len < sizeof(offer)) {
+		ctx->last_error = KYRKA_ERROR_PACKET_ERROR;
+		return (-1);
+	}
 
 	if (!(ctx->flags & KYRKA_FLAG_CATHEDRAL_CONFIG) ||
-	    !(ctx->flags & KYRKA_FLAG_CATHEDRAL_SECRET) ||
-	    !(ctx->flags & KYRKA_FLAG_DEVICE_KEK))
-		return;
+	    !(ctx->flags & KYRKA_FLAG_CATHEDRAL_SECRET)) {
+		ctx->last_error = KYRKA_ERROR_CATHEDRAL_CONFIG;
+		return (-1);
+	}
 
 	nyfe_zeroize_register(&offer, sizeof(offer));
 	nyfe_zeroize_register(&cipher, sizeof(cipher));
@@ -200,6 +203,10 @@ kyrka_cathedral_decrypt(struct kyrka *ctx, const void *data, size_t len)
 
 	switch (offer.data.type) {
 	case KYRKA_OFFER_TYPE_AMBRY:
+		if (!(ctx->flags & KYRKA_FLAG_DEVICE_KEK)) {
+			ctx->last_error = KYRKA_ERROR_CATHEDRAL_CONFIG;
+			return (-1);
+		}
 		cathedral_ambry_recv(ctx, &offer);
 		break;
 	case KYRKA_OFFER_TYPE_INFO:
@@ -213,6 +220,8 @@ kyrka_cathedral_decrypt(struct kyrka *ctx, const void *data, size_t len)
 cleanup:
 	nyfe_zeroize(&offer, sizeof(offer));
 	nyfe_zeroize(&cipher, sizeof(cipher));
+
+	return (0);
 }
 
 /*

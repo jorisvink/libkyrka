@@ -101,17 +101,9 @@ kyrka_purgatory_input(struct kyrka *ctx, const void *data, size_t len)
 		return (0);
 	}
 
-	if (((spi == (KYRKA_CATHEDRAL_MAGIC >> 32)) &&
-	    (seq == (KYRKA_CATHEDRAL_MAGIC & 0xffffffff))) ||
-	    ((spi == (KYRKA_CATHEDRAL_LITURGY_MAGIC >> 32)) &&
-	    (seq == (KYRKA_CATHEDRAL_LITURGY_MAGIC & 0xffffffff)))) {
-		if ((ctx->flags & KYRKA_FLAG_CATHEDRAL_CONFIG) &&
-		    (ctx->flags & KYRKA_FLAG_CATHEDRAL_SECRET) &&
-		    (ctx->flags & KYRKA_FLAG_DEVICE_KEK)) {
-			kyrka_cathedral_decrypt(ctx, data, len);
-		}
-		return (0);
-	}
+	if ((spi == (KYRKA_CATHEDRAL_MAGIC >> 32)) &&
+	    (seq == (KYRKA_CATHEDRAL_MAGIC & 0xffffffff)))
+		return (kyrka_cathedral_decrypt(ctx, data, len));
 
 	if (ctx->heaven.send == NULL) {
 		ctx->last_error = KYRKA_ERROR_NO_CALLBACK;

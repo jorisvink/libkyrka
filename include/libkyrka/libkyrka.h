@@ -49,6 +49,8 @@ extern "C" {
 #define KYRKA_ERROR_NO_KEK		10
 #define KYRKA_ERROR_NO_SECRET		11
 #define KYRKA_ERROR_NO_CONFIG		12
+#define KYRKA_ERROR_CATHEDRAL_CONFIG	13
+#define KYRKA_ERROR_PACKET_ERROR	14
 
 /*
  * Events that can occur and can be seen if an event callback was

@@ -381,7 +381,7 @@ int	kyrka_cipher_decrypt(struct kyrka *, void *, const void *,
 	    size_t, const void *, size_t, struct kyrka_packet *);
 
 /* src/cathedral.c */
-void	kyrka_cathedral_decrypt(struct kyrka *, const void *, size_t);
+int	kyrka_cathedral_decrypt(struct kyrka *, const void *, size_t);
 
 /* src/kdf.c */
 int	kyrka_cipher_kdf(struct kyrka *, const u_int8_t *, size_t,
