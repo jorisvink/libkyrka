@@ -26,7 +26,7 @@ SRC=	src/kyrka.c \
 	src/key.c \
 	src/heaven.c \
 	src/offer.c \
-	src/openssl_evp.c \
+	src/libsodium_aes_gcm.c \
 	src/packet.c \
 	src/purgatory.c
 
@@ -45,11 +45,7 @@ else ifeq ("$(OSNAME)", "openbsd")
 	CFLAGS+=-DPLATFORM_OPENBSD
 endif
 
-ifeq ("$(OPENSSL_PATH)", "")
-	CFLAGS+=$(shell pkg-config openssl --cflags)
-else
-	CFLAGS+=-I$(OPENSSL_PATH)/include
-endif
+CFLAGS+=$(shell pkg-config libsodium --cflags)
 
 OBJS=	$(SRC:src/%.c=$(OBJDIR)/%.o)
 OBJS+=	$(OBJDIR)/version.o
