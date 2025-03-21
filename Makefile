@@ -45,7 +45,12 @@ else ifeq ("$(OSNAME)", "openbsd")
 	CFLAGS+=-DPLATFORM_OPENBSD
 endif
 
-CFLAGS+=$(shell pkg-config libsodium --cflags)
+ifeq ("$(LIBSODIUM_PATH)", "")
+	CFLAGS+=$(shell pkg-config libsodium --cflags)
+else
+	CFLAGS+=-I$(LIBSODIUM_PATH)/include
+endif
+
 
 OBJS=	$(SRC:src/%.c=$(OBJDIR)/%.o)
 OBJS+=	$(OBJDIR)/version.o
