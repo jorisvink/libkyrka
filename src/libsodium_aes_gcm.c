@@ -46,7 +46,7 @@ kyrka_cipher_setup(struct kyrka *ctx, const u_int8_t *key, size_t len)
 	}
 
 	if (crypto_aead_aes256gcm_beforenm(&cipher->ctx, key) == -1) {
-		free(ctx);
+		free(cipher);
 		ctx->last_error = KYRKA_ERROR_INTERNAL;
 		return (NULL);
 	}
