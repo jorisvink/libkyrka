@@ -177,8 +177,6 @@ kyrka_cathedral_decrypt(struct kyrka *ctx, const void *data, size_t len)
 	PRECOND(ctx != NULL);
 	PRECOND(data != NULL);
 
-	printf("incoming %zu (%zu)\n", len, sizeof(offer));
-
 	if (len < sizeof(offer)) {
 		ctx->last_error = KYRKA_ERROR_PACKET_ERROR;
 		return (-1);
