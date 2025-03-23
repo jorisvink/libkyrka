@@ -68,6 +68,8 @@ kyrka_purgatory_input(struct kyrka *ctx, const void *data, size_t len)
 	struct kyrka_packet		pkt;
 	struct kyrka_ipsec_hdr		*hdr;
 	struct kyrka_ipsec_tail		*tail;
+	size_t				ctlen;
+	struct kyrka_cipher		cipher;
 	u_int32_t			spi, seq;
 	u_int8_t			nonce[12], aad[12], *ptr;
 
@@ -79,9 +81,10 @@ kyrka_purgatory_input(struct kyrka *ctx, const void *data, size_t len)
 		return (-1);
 	}
 
-	if (len < sizeof(struct kyrka_ipsec_hdr) +
-	    sizeof(struct kyrka_ipsec_tail) + kyrka_cipher_overhead())
+	if (len < sizeof(*hdr) + sizeof(*tail) + KYRKA_TAG_LENGTH)
 		return (0);
+
+	ctlen = len - sizeof(*hdr) - KYRKA_TAG_LENGTH;
 
 	pkt.length = len;
 	ptr = kyrka_packet_head(&pkt);
@@ -131,15 +134,28 @@ kyrka_purgatory_input(struct kyrka *ctx, const void *data, size_t len)
 	memcpy(aad, &spi, sizeof(spi));
 	memcpy(&aad[sizeof(spi)], &hdr->pn, sizeof(hdr->pn));
 
-	if (kyrka_cipher_decrypt(ctx, ctx->rx.cipher, nonce,
-	    sizeof(nonce), aad, sizeof(aad), &pkt) == -1)
+	cipher.ctx = ctx->rx.cipher;
+
+	cipher.aad = aad;
+	cipher.aad_len = sizeof(aad);
+
+	cipher.nonce = nonce;
+	cipher.nonce_len = sizeof(nonce);
+
+	ptr = kyrka_packet_data(&pkt);
+	cipher.ct = ptr;
+	cipher.pt = ptr;
+	cipher.data_len = ctlen;
+	cipher.tag = ptr + ctlen;
+
+	if (kyrka_cipher_decrypt(&cipher) == -1)
 		return (-1);
 
 	purgatory_arwin_update(&ctx->rx, hdr);
 
 	pkt.length -= sizeof(struct kyrka_ipsec_hdr);
 	pkt.length -= sizeof(struct kyrka_ipsec_tail);
-	pkt.length -= kyrka_cipher_overhead();
+	pkt.length -= KYRKA_TAG_LENGTH;
 
 	tail = kyrka_packet_tail(&pkt);
 

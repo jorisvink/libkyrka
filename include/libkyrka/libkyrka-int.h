@@ -50,11 +50,27 @@
 		}							\
 	} while (0)
 
+#define VERIFY(x)							\
+	do {								\
+		if (!(x)) {						\
+			printf("verification failed in %s:%s:%d\n",	\
+			    __FILE__, __func__, __LINE__);		\
+			kyrka_emergency_erase();			\
+			abort();					\
+		}							\
+	} while (0)
+
 /* Length of our symmetrical keys, in bytes. */
 #define KYRKA_KEY_LENGTH		32
 
 /* Length for an encapsulation key in hex. */
 #define KYRKA_ENCAP_HEX_LEN		(KYRKA_KEY_LENGTH * 2)
+
+/* The nonce size, in our case 96-bit. */
+#define KYRKA_NONCE_LENGTH		12
+
+/* The tag size, in our case 128-bit. */
+#define KYRKA_TAG_LENGTH		16
 
 /* ESP next_proto value for a heartbeat. */
 #define KYRKA_PACKET_HEARTBEAT		0xfc
@@ -92,22 +108,28 @@
 #define KYRKA_AMBRY_SEED_LEN		64
 
 /* Length of a KEK used for an Ambry. */
-#define KYRKA_AMBRY_KEK_LEN		32
+#define KYRKA_AMBRY_KEK_LEN		KYRKA_KEY_LENGTH
 
 /* Length of the key carried in an Ambry. */
-#define KYRKA_AMBRY_KEY_LEN		32
-
-/* Length of OKM to generate. */
-#define KYRKA_AMBRY_OKM_LEN		64
+#define KYRKA_AMBRY_KEY_LEN		KYRKA_KEY_LENGTH
 
 /* Length of an authentication tag for an Ambry. */
-#define KYRKA_AMBRY_TAG_LEN		32
+#define KYRKA_AMBRY_TAG_LEN		KYRKA_TAG_LENGTH
 
 /* Anti-replay window size. */
 #define KYRKA_ARWIN_SIZE		64
 
 /* The amount of peers per flock. */
 #define KYRKA_PEERS_PER_FLOCK		255
+
+/*
+ * The ambry AAD data.
+ */
+struct kyrka_ambry_aad {
+	u_int16_t	tunnel;
+	u_int32_t	generation;
+	u_int8_t	seed[KYRKA_AMBRY_SEED_LEN];
+} __attribute__((packed));
 
 /*
  * The ambry header, just 4 bytes that denotes the generation.
@@ -290,8 +312,28 @@ struct kyrka_offer_data {
 struct kyrka_offer {
 	struct kyrka_offer_hdr		hdr;
 	struct kyrka_offer_data		data;
-	u_int8_t			tag[32];
+	u_int8_t			tag[KYRKA_TAG_LENGTH];
 } __attribute__((packed));
+
+/*
+ * Used to interface with the cipher backends.
+ */
+struct kyrka_cipher {
+	void			*pt;
+	void			*ct;
+	void			*aad;
+	void			*ctx;
+	void			*tag;
+	void			*nonce;
+	size_t			aad_len;
+	size_t			data_len;
+	size_t			nonce_len;
+};
+
+/* A key to be used with the cipher backends. */
+struct kyrka_key {
+	u_int8_t		key[KYRKA_KEY_LENGTH];
+};
 
 /* If a secret has been loaded into the context. */
 #define KYRKA_FLAG_SECRET_SET		(1 << 0)
@@ -371,21 +413,20 @@ struct kyrka {
 extern const char	*kyrka_build_rev;
 extern const char	*kyrka_build_date;
 
-/* cipher interfaces. */
-size_t	kyrka_cipher_overhead(void);
+/* The cipher API. */
+int	kyrka_cipher_init(void);
 void	kyrka_cipher_cleanup(void *);
-void	*kyrka_cipher_setup(struct kyrka *, const u_int8_t *, size_t);
-int	kyrka_cipher_encrypt(struct kyrka *, void *, const void *,
-	    size_t, const void *, size_t, struct kyrka_packet *);
-int	kyrka_cipher_decrypt(struct kyrka *, void *, const void *,
-	    size_t, const void *, size_t, struct kyrka_packet *);
+int	kyrka_cipher_encrypt(struct kyrka_cipher *);
+int	kyrka_cipher_decrypt(struct kyrka_cipher *);
+void	*kyrka_cipher_setup(const u_int8_t *, size_t);
 
 /* src/cathedral.c */
 int	kyrka_cathedral_decrypt(struct kyrka *, const void *, size_t);
 
 /* src/kdf.c */
-int	kyrka_cipher_kdf(struct kyrka *, const u_int8_t *, size_t,
-	    const char *, struct nyfe_agelas *, void *, size_t);
+
+void	kyrka_cipher_kdf(struct kyrka *, const u_int8_t *, size_t,
+	    const char *, struct kyrka_key *, void *, size_t);
 
 /* src/key.c */
 void	kyrka_key_unwrap(struct kyrka *, const void *, size_t);
@@ -406,8 +447,9 @@ void	*kyrka_packet_data(struct kyrka_packet *);
 void	*kyrka_packet_tail(struct kyrka_packet *);
 int	kyrka_packet_crypto_checklen(struct kyrka_packet *);
 
+void	kyrka_offer_nonce(u_int8_t *, size_t);
 void	kyrka_offer_tfc(struct kyrka_packet *);
-void	kyrka_offer_encrypt(struct nyfe_agelas *, struct kyrka_offer *);
-int	kyrka_offer_decrypt(struct nyfe_agelas *, struct kyrka_offer *, int);
+int	kyrka_offer_encrypt(struct kyrka_key *, struct kyrka_offer *);
+int	kyrka_offer_decrypt(struct kyrka_key *, struct kyrka_offer *, int);
 
 #endif

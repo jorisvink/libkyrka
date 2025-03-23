@@ -75,7 +75,7 @@ kyrka_packet_crypto_checklen(struct kyrka_packet *pkt)
 	PRECOND(pkt != NULL);
 
 	if (pkt->length < sizeof(struct kyrka_ipsec_hdr) +
-	    sizeof(struct kyrka_ipsec_tail) + kyrka_cipher_overhead())
+	    sizeof(struct kyrka_ipsec_tail) + KYRKA_TAG_LENGTH)
 		return (-1);
 
 	return (0);

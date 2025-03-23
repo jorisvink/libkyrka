@@ -62,6 +62,7 @@ kyrka_heaven_input(struct kyrka *ctx, const void *data, size_t len)
 	struct kyrka_packet		pkt;
 	struct kyrka_ipsec_hdr		*hdr;
 	struct kyrka_ipsec_tail		*tail;
+	struct kyrka_cipher		cipher;
 	size_t				overhead;
 	u_int8_t			nonce[12], aad[12], *ptr;
 
@@ -97,7 +98,7 @@ kyrka_heaven_input(struct kyrka *ctx, const void *data, size_t len)
 		return (-1);
 	}
 
-	overhead = sizeof(*hdr) + sizeof(*tail) + kyrka_cipher_overhead();
+	overhead = sizeof(*hdr) + sizeof(*tail) + KYRKA_TAG_LENGTH;
 	pkt.length = len;
 
 	if ((pkt.length + overhead < pkt.length) ||
@@ -128,11 +129,23 @@ kyrka_heaven_input(struct kyrka *ctx, const void *data, size_t len)
 	memcpy(aad, &spi, sizeof(spi));
 	memcpy(&aad[sizeof(spi)], &hdr->pn, sizeof(hdr->pn));
 
-	if (kyrka_cipher_encrypt(ctx, ctx->tx.cipher, nonce,
-	    sizeof(nonce), aad, sizeof(aad), &pkt) == -1)
+	cipher.ctx = ctx->tx.cipher;
+
+	cipher.aad = aad;
+	cipher.aad_len = sizeof(aad);
+
+	cipher.nonce = nonce;
+	cipher.nonce_len = sizeof(nonce);
+
+	cipher.pt = ptr;
+	cipher.ct = ptr;
+	cipher.data_len = pkt.length;
+	cipher.tag = ptr + pkt.length;
+
+	if (kyrka_cipher_encrypt(&cipher) == -1)
 		return (-1);
 
-	pkt.length += sizeof(*hdr);
+	pkt.length += sizeof(*hdr) + KYRKA_TAG_LENGTH;
 
 	ctx->purgatory.send(hdr, pkt.length,
 	    ctx->tx.seqnr - 1, ctx->purgatory.udata);

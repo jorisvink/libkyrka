@@ -29,25 +29,30 @@ struct cipher_aes_gcm {
 };
 
 /*
+ * Perform any one-time cipher initialization.
+ */
+int
+kyrka_cipher_init(void)
+{
+	return (sodium_init());
+}
+
+/*
  * Setup the cipher.
  */
 void *
-kyrka_cipher_setup(struct kyrka *ctx, const u_int8_t *key, size_t len)
+kyrka_cipher_setup(const u_int8_t *key, size_t len)
 {
 	struct cipher_aes_gcm	*cipher;
 
-	PRECOND(ctx != NULL);
 	PRECOND(key != NULL);
 	PRECOND(len == KYRKA_KEY_LENGTH);
 
-	if ((cipher = calloc(1, sizeof(*cipher))) == NULL) {
-		ctx->last_error = KYRKA_ERROR_SYSTEM;
+	if ((cipher = calloc(1, sizeof(*cipher))) == NULL)
 		return (NULL);
-	}
 
 	if (crypto_aead_aes256gcm_beforenm(&cipher->ctx, key) == -1) {
 		free(cipher);
-		ctx->last_error = KYRKA_ERROR_INTERNAL;
 		return (NULL);
 	}
 
@@ -57,84 +62,57 @@ kyrka_cipher_setup(struct kyrka *ctx, const u_int8_t *key, size_t len)
 }
 
 /*
- * Returns the overhead for AES-GCM. In this case it's the
- * 16 byte tag.
- */
-size_t
-kyrka_cipher_overhead(void)
-{
-	return (crypto_aead_aes256gcm_ABYTES);
-}
-
-/*
- * Encrypt the packet data.
- * Automatically adds the integrity tag at the end of the ciphertext.
+ * Encrypt and authenticate some data in combination with the given nonce
+ * aad, etc.
  */
 int
-kyrka_cipher_encrypt(struct kyrka *ctx, void *arg, const void *nonce,
-    size_t nonce_len, const void *aad, size_t aad_len, struct kyrka_packet *pkt)
+kyrka_cipher_encrypt(struct kyrka_cipher *cipher)
 {
-	unsigned long long	mlen;
-	u_int8_t		*data;
-	struct cipher_aes_gcm	*cipher;
+	struct cipher_aes_gcm	*ctx;
 
-	PRECOND(ctx != NULL);
-	PRECOND(arg != NULL);
-	PRECOND(nonce != NULL);
-	PRECOND(nonce_len == crypto_aead_aes256gcm_NPUBBYTES);
-	PRECOND(aad != NULL);
-	PRECOND(pkt != NULL);
+	PRECOND(cipher != NULL);
 
-	PRECOND(pkt->length + crypto_aead_aes256gcm_ABYTES < sizeof(pkt->data));
+	VERIFY(cipher->pt != NULL);
+	VERIFY(cipher->ct != NULL);
+	VERIFY(cipher->tag != NULL);
+	VERIFY(cipher->aad != NULL);
+	VERIFY(cipher->nonce != NULL);
+	VERIFY(cipher->nonce_len == KYRKA_NONCE_LENGTH);
 
-	cipher = arg;
-	mlen = pkt->length;
-	data = kyrka_packet_data(pkt);
+	ctx = cipher->ctx;
 
-	if (crypto_aead_aes256gcm_encrypt_afternm(data, &mlen, data,
-	    mlen, aad, aad_len, NULL, nonce, &cipher->ctx) == -1) {
-		ctx->last_error = KYRKA_ERROR_INTERNAL;
+	if (crypto_aead_aes256gcm_encrypt_detached_afternm(cipher->ct,
+	    cipher->tag, NULL, cipher->pt, cipher->data_len, cipher->aad,
+	    cipher->aad_len, NULL, cipher->nonce, &ctx->ctx) == -1)
 		return (-1);
-	}
-
-	pkt->length += crypto_aead_aes256gcm_ABYTES;
 
 	return (0);
 }
 
 /*
- * Verify and decrypts a given packet.
+ * Decrypt and authenticate some data in combination with the given nonce,
+ * aad etc. Returns -1 if the data was unable to be authenticated.
  */
 int
-kyrka_cipher_decrypt(struct kyrka *ctx, void *arg, const void *nonce,
-    size_t nonce_len, const void *aad, size_t aad_len, struct kyrka_packet *pkt)
+kyrka_cipher_decrypt(struct kyrka_cipher *cipher)
 {
-	size_t			len;
-	u_int8_t		*data;
-	struct cipher_aes_gcm	*cipher;
+	struct cipher_aes_gcm	*ctx;
 
-	PRECOND(ctx != NULL);
-	PRECOND(arg != NULL);
-	PRECOND(nonce != NULL);
-	PRECOND(nonce_len == crypto_aead_aes256gcm_NPUBBYTES);
-	PRECOND(aad != NULL);
-	PRECOND(pkt != NULL);
+	PRECOND(cipher != NULL);
 
-	if (pkt->length <
-	    sizeof(struct kyrka_ipsec_hdr) + crypto_aead_aes256gcm_ABYTES) {
-		ctx->last_error = KYRKA_ERROR_INTERNAL;	
+	VERIFY(cipher->pt != NULL);
+	VERIFY(cipher->ct != NULL);
+	VERIFY(cipher->tag != NULL);
+	VERIFY(cipher->aad != NULL);
+	VERIFY(cipher->nonce != NULL);
+	VERIFY(cipher->nonce_len == KYRKA_NONCE_LENGTH);
+
+	ctx = cipher->ctx;
+
+	if (crypto_aead_aes256gcm_decrypt_detached_afternm(cipher->pt,
+	    NULL, cipher->ct, cipher->data_len, cipher->tag, cipher->aad,
+	    cipher->aad_len, cipher->nonce, &ctx->ctx) == -1)
 		return (-1);
-	}
-
-	cipher = arg;
-	data = kyrka_packet_data(pkt);
-	len = pkt->length - sizeof(struct kyrka_ipsec_hdr);
-
-	if (crypto_aead_aes256gcm_decrypt_afternm(data, NULL, NULL,
-	    data, len, aad, aad_len, nonce, &cipher->ctx) == -1) {
-		ctx->last_error = KYRKA_ERROR_INTERNAL;
-		return (-1);
-	}
 
 	return (0);
 }

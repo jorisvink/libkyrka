@@ -56,17 +56,41 @@ kyrka_offer_init(struct kyrka_packet *pkt, u_int32_t spi,
 
 /*
  * Encrypt and authenticate a kyrka_offer data structure.
- * Note: does not zeroize the cipher, this is the caller its responsibility.
+ * Note: does not zeroize the key, this is the caller its responsibility.
  */
-void
-kyrka_offer_encrypt(struct nyfe_agelas *cipher, struct kyrka_offer *op)
+int
+kyrka_offer_encrypt(struct kyrka_key *key, struct kyrka_offer *op)
 {
-	PRECOND(cipher != NULL);
+	struct kyrka_cipher	cipher;
+	u_int8_t		nonce[KYRKA_NONCE_LENGTH];
+
+	PRECOND(key != NULL);
 	PRECOND(op != NULL);
 
-	nyfe_agelas_aad(cipher, &op->hdr, sizeof(op->hdr));
-	nyfe_agelas_encrypt(cipher, &op->data, &op->data, sizeof(op->data));
-	nyfe_agelas_authenticate(cipher, op->tag, sizeof(op->tag));
+	cipher.ctx = kyrka_cipher_setup(key->key, sizeof(key->key));
+	if (cipher.ctx == NULL)
+		return (-1);
+
+	cipher.aad = &op->hdr;
+	cipher.aad_len = sizeof(op->hdr);
+
+	kyrka_offer_nonce(nonce, sizeof(nonce));
+	cipher.nonce_len = sizeof(nonce);
+	cipher.nonce = nonce;
+
+	cipher.pt = &op->data;
+	cipher.ct = &op->data;
+	cipher.tag = &op->tag[0];
+	cipher.data_len = sizeof(op->data);
+
+	if (kyrka_cipher_encrypt(&cipher) == -1) {
+		kyrka_cipher_cleanup(cipher.ctx);
+		return (-1);
+	}
+
+	kyrka_cipher_cleanup(cipher.ctx);
+
+	return (0);
 }
 
 /*
@@ -106,22 +130,38 @@ kyrka_offer_tfc(struct kyrka_packet *pkt)
  * Note: does not zeroize the cipher, this is the caller its responsibility.
  */
 int
-kyrka_offer_decrypt(struct nyfe_agelas *cipher,
-    struct kyrka_offer *op, int valid)
+kyrka_offer_decrypt(struct kyrka_key *key, struct kyrka_offer *op, int valid)
 {
 	struct timespec		ts;
-	u_int8_t		tag[32];
+	struct kyrka_cipher	cipher;
+	u_int8_t		nonce[KYRKA_NONCE_LENGTH];
 
-	PRECOND(cipher != NULL);
+	PRECOND(key != NULL);
 	PRECOND(op != NULL);
 	PRECOND(valid > 0);
 
-	nyfe_agelas_aad(cipher, &op->hdr, sizeof(op->hdr));
-	nyfe_agelas_decrypt(cipher, &op->data, &op->data, sizeof(op->data));
-	nyfe_agelas_authenticate(cipher, tag, sizeof(tag));
-
-	if (nyfe_mem_cmp(op->tag, tag, sizeof(op->tag)))
+	cipher.ctx = kyrka_cipher_setup(key->key, sizeof(key->key));
+	if (cipher.ctx == NULL)
 		return (-1);
+
+	cipher.aad = &op->hdr;
+	cipher.aad_len = sizeof(op->hdr);
+
+	kyrka_offer_nonce(nonce, sizeof(nonce));
+	cipher.nonce_len = sizeof(nonce);
+	cipher.nonce = nonce;
+
+	cipher.pt = &op->data;
+	cipher.ct = &op->data;
+	cipher.tag = &op->tag[0];
+	cipher.data_len = sizeof(op->data);
+
+	if (kyrka_cipher_decrypt(&cipher) == -1) {
+		kyrka_cipher_cleanup(cipher.ctx);
+		return (-1);
+	}
+
+	kyrka_cipher_cleanup(cipher.ctx);
 
 	(void)clock_gettime(CLOCK_REALTIME, &ts);
 	op->data.timestamp = be64toh(op->data.timestamp);
@@ -131,4 +171,23 @@ kyrka_offer_decrypt(struct nyfe_agelas *cipher,
 		return (-1);
 
 	return (0);
+}
+
+/*
+ * Return a nonce containing a single 0x01 byte to the caller.
+ * We use this for key offers, cathedral messages and ambries.
+ *
+ * This might look scary but this does not lead to (key, nonce) pair re-use
+ * under a stream cipher as the keys for these type of messages are uniquely
+ * derived per message. Don't blindly copy this idiom unless you know what
+ * you are doing.
+ */
+void
+kyrka_offer_nonce(u_int8_t *nonce, size_t nonce_len)
+{
+	PRECOND(nonce != NULL);
+	PRECOND(nonce_len == KYRKA_NONCE_LENGTH);
+
+	nyfe_mem_zero(nonce, nonce_len);
+	nonce[nonce_len - 1] = 0x01;
 }

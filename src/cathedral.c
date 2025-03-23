@@ -171,11 +171,13 @@ kyrka_cathedral_liturgy(struct kyrka *ctx)
 int
 kyrka_cathedral_decrypt(struct kyrka *ctx, const void *data, size_t len)
 {
+	struct kyrka_key	okm;
 	struct kyrka_offer	offer;
-	struct nyfe_agelas	cipher;
 
 	PRECOND(ctx != NULL);
 	PRECOND(data != NULL);
+
+	printf("incoming %zu (%zu)\n", len, sizeof(offer));
 
 	if (len < sizeof(offer)) {
 		ctx->last_error = KYRKA_ERROR_PACKET_ERROR;
@@ -188,17 +190,16 @@ kyrka_cathedral_decrypt(struct kyrka *ctx, const void *data, size_t len)
 		return (-1);
 	}
 
+	nyfe_zeroize_register(&okm, sizeof(okm));
 	nyfe_zeroize_register(&offer, sizeof(offer));
-	nyfe_zeroize_register(&cipher, sizeof(cipher));
 
 	nyfe_memcpy(&offer, data, sizeof(offer));
 
-	if (kyrka_cipher_kdf(ctx, ctx->cathedral.secret,
-	    sizeof(ctx->cathedral.secret), KYRKA_CATHEDRAL_KDF_LABEL, &cipher,
-	    offer.hdr.seed, sizeof(offer.hdr.seed)) == -1)
-		goto cleanup;
+	kyrka_cipher_kdf(ctx, ctx->cathedral.secret,
+	    sizeof(ctx->cathedral.secret), KYRKA_CATHEDRAL_KDF_LABEL,
+	    &okm, offer.hdr.seed, sizeof(offer.hdr.seed));
 
-	if (kyrka_offer_decrypt(&cipher, &offer, CATHEDRAL_OFFER_VALID) == -1)
+	if (kyrka_offer_decrypt(&okm, &offer, CATHEDRAL_OFFER_VALID) == -1)
 		goto cleanup;
 
 	switch (offer.data.type) {
@@ -218,8 +219,8 @@ kyrka_cathedral_decrypt(struct kyrka *ctx, const void *data, size_t len)
 	}
 
 cleanup:
+	nyfe_zeroize(&okm, sizeof(okm));
 	nyfe_zeroize(&offer, sizeof(offer));
-	nyfe_zeroize(&cipher, sizeof(cipher));
 
 	return (0);
 }
@@ -234,9 +235,9 @@ cathedral_send_offer(struct kyrka *ctx, u_int64_t magic)
 {
 	struct kyrka_packet		pkt;
 	struct kyrka_offer		*op;
+	struct kyrka_key		okm;
 	u_int8_t			type;
 	struct kyrka_info_offer		*info;
-	struct nyfe_agelas		cipher;
 	struct kyrka_liturgy_offer	*liturgy;
 
 	PRECOND(ctx != NULL);
@@ -281,17 +282,18 @@ cathedral_send_offer(struct kyrka *ctx, u_int64_t magic)
 		liturgy->group = htobe16(ctx->cathedral.group);
 	}
 
-	nyfe_zeroize_register(&cipher, sizeof(cipher));
+	nyfe_zeroize_register(&okm, sizeof(okm));
 
-	if (kyrka_cipher_kdf(ctx, ctx->cathedral.secret,
-	    sizeof(ctx->cathedral.secret), KYRKA_CATHEDRAL_KDF_LABEL, &cipher,
-	    op->hdr.seed, sizeof(op->hdr.seed)) == -1) {
-		nyfe_zeroize(&cipher, sizeof(cipher));
+	kyrka_cipher_kdf(ctx, ctx->cathedral.secret,
+	    sizeof(ctx->cathedral.secret), KYRKA_CATHEDRAL_KDF_LABEL, &okm,
+	    op->hdr.seed, sizeof(op->hdr.seed));
+
+	if (kyrka_offer_encrypt(&okm, op) == -1) {
+		nyfe_zeroize(&okm, sizeof(okm));
 		return (-1);
 	}
 
-	kyrka_offer_encrypt(&cipher, op);
-	nyfe_zeroize(&cipher, sizeof(cipher));
+	nyfe_zeroize(&okm, sizeof(okm));
 
 	ctx->cathedral.ifc.send(op,
 	    sizeof(*op), magic, ctx->cathedral.ifc.udata);
@@ -394,9 +396,10 @@ cathedral_ambry_unwrap(struct kyrka *ctx, struct kyrka_ambry_offer *ambry)
 	u_int8_t			len;
 	union kyrka_event		evt;
 	struct nyfe_kmac256		kdf;
-	struct nyfe_agelas		cipher;
-	u_int8_t			tag[KYRKA_AMBRY_TAG_LEN];
-	u_int8_t			okm[KYRKA_AMBRY_OKM_LEN];
+	struct kyrka_ambry_aad		aad;
+	struct kyrka_cipher		cipher;
+	u_int8_t			okm[KYRKA_AMBRY_KEY_LEN];
+	u_int8_t			nonce[KYRKA_NONCE_LENGTH];
 
 	PRECOND(ctx != NULL);
 	PRECOND(ambry != NULL);
@@ -405,30 +408,40 @@ cathedral_ambry_unwrap(struct kyrka *ctx, struct kyrka_ambry_offer *ambry)
 
 	nyfe_zeroize_register(okm, sizeof(okm));
 	nyfe_zeroize_register(&kdf, sizeof(kdf));
-	nyfe_zeroize_register(&cipher, sizeof(cipher));
 
 	nyfe_kmac256_init(&kdf, ctx->cfg.kek, sizeof(ctx->cfg.kek),
 	    KYRKA_AMBRY_KDF, strlen(KYRKA_AMBRY_KDF));
 
-	len = KYRKA_AMBRY_OKM_LEN;
+	len = sizeof(okm);
 	nyfe_kmac256_update(&kdf, &len, sizeof(len));
 	nyfe_kmac256_update(&kdf, ambry->seed, sizeof(ambry->seed));
 	nyfe_kmac256_final(&kdf, okm, sizeof(okm));
 	nyfe_zeroize(&kdf, sizeof(kdf));
 
-	nyfe_agelas_init(&cipher, okm, sizeof(okm));
+	if ((cipher.ctx = kyrka_cipher_setup(okm, sizeof(okm))) == NULL) {
+		nyfe_zeroize(&okm, sizeof(okm));
+		return;
+	}
+
 	nyfe_zeroize(okm, sizeof(okm));
 
-	nyfe_agelas_aad(&cipher, &ambry->generation, sizeof(ambry->generation));
-	nyfe_agelas_aad(&cipher, ambry->seed, sizeof(ambry->seed));
-	nyfe_agelas_aad(&cipher, &ambry->tunnel, sizeof(ambry->tunnel));
+	aad.tunnel = ambry->tunnel;
+	aad.generation = ambry->generation;
+	nyfe_memcpy(aad.seed, ambry->seed, sizeof(ambry->seed));
 
-	nyfe_agelas_decrypt(&cipher,
-	    ambry->key, ambry->key, sizeof(ambry->key));
-	nyfe_agelas_authenticate(&cipher, tag, sizeof(tag));
-	nyfe_zeroize(&cipher, sizeof(cipher));
+	cipher.aad = &aad;
+	cipher.aad_len = sizeof(aad);
 
-	if (nyfe_mem_cmp(ambry->tag, tag, sizeof(tag)))
+	cipher.nonce = nonce;
+	cipher.nonce_len = sizeof(nonce);
+	kyrka_offer_nonce(nonce, sizeof(nonce));
+
+	cipher.ct = ambry->key;
+	cipher.pt = ambry->key;
+	cipher.tag = &ambry->tag[0];
+	cipher.data_len = sizeof(ambry->key);
+
+	if (kyrka_cipher_decrypt(&cipher) == -1)
 		return;
 
 	ctx->cathedral.ambry = be32toh(ambry->generation);

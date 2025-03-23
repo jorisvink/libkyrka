@@ -52,6 +52,9 @@ kyrka_ctx_alloc(void (*event)(struct kyrka *, union kyrka_event *, void *),
 	if ((ctx = calloc(1, sizeof(*ctx))) == NULL)
 		return (NULL);
 
+	if (kyrka_cipher_init() == -1)
+		return (NULL);
+
 	nyfe_zeroize_register(ctx, sizeof(*ctx));
 
 	nyfe_random_init();
