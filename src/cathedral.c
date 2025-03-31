@@ -268,8 +268,8 @@ cathedral_send_offer(struct kyrka *ctx, u_int64_t magic)
 	if (type != KYRKA_OFFER_TYPE_LITURGY) {
 		info = &op->data.offer.info;
 		nyfe_mem_zero(info, sizeof(*info));
-
 		info->tunnel = htobe16(ctx->cfg.spi);
+		info->instance = htobe64(ctx->local_id);
 		info->ambry_generation = htobe32(ctx->cathedral.ambry);
 		info->rx_active = ctx->rx.spi;
 		info->rx_pending = ctx->rx.spi;
