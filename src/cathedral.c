@@ -32,6 +32,8 @@ static int	cathedral_send_offer(struct kyrka *, u_int64_t);
 static void	cathedral_p2p_recv(struct kyrka *, struct kyrka_offer *);
 static void	cathedral_liturgy_recv(struct kyrka *, struct kyrka_offer *);
 static void	cathedral_ambry_recv(struct kyrka *, struct kyrka_offer *);
+static void	cathedral_remembrance_recv(struct kyrka *,
+		    struct kyrka_offer *);
 static void	cathedral_ambry_unwrap(struct kyrka *,
 		    struct kyrka_ambry_offer *);
 
@@ -70,6 +72,7 @@ kyrka_cathedral_config(struct kyrka *ctx, struct kyrka_cathedral_cfg *cfg)
 	ctx->cathedral.ifc.send = cfg->send;
 	ctx->cathedral.ifc.udata = cfg->udata;
 	ctx->cathedral.identity = cfg->identity;
+	ctx->cathedral.remembrance = cfg->remembrance;
 	ctx->cathedral.discoverable = cfg->discoverable;
 
 	if (cfg->secret != NULL) {
@@ -215,6 +218,9 @@ kyrka_cathedral_decrypt(struct kyrka *ctx, const void *data, size_t len)
 	case KYRKA_OFFER_TYPE_LITURGY:
 		cathedral_liturgy_recv(ctx, &offer);
 		break;
+	case KYRKA_OFFER_TYPE_REMEMBRANCE:
+		cathedral_remembrance_recv(ctx, &offer);
+		break;
 	}
 
 cleanup:
@@ -274,6 +280,8 @@ cathedral_send_offer(struct kyrka *ctx, u_int64_t magic)
 		info->ambry_generation = htobe32(ctx->cathedral.ambry);
 		info->rx_active = ctx->rx.spi;
 		info->rx_pending = ctx->rx.spi;
+		if (ctx->cathedral.remembrance)
+			info->flags = KYRKA_INFO_FLAG_REMEMBRANCE;
 	} else {
 		liturgy = &op->data.offer.liturgy;
 		nyfe_mem_zero(liturgy, sizeof(*liturgy));
@@ -344,6 +352,7 @@ cathedral_liturgy_recv(struct kyrka *ctx, struct kyrka_offer *op)
 
 	PRECOND(ctx != NULL);
 	PRECOND(op != NULL);
+	PRECOND(op->data.type == KYRKA_OFFER_TYPE_LITURGY);
 
 	if (ctx->event == NULL)
 		return;
@@ -356,6 +365,35 @@ cathedral_liturgy_recv(struct kyrka *ctx, struct kyrka_offer *op)
 
 	evt.type = KYRKA_EVENT_LITURGY_RECEIVED;
 	memcpy(evt.liturgy.peers, liturgy->peers, sizeof(liturgy->peers));
+
+	ctx->event(ctx, &evt, ctx->udata);
+}
+
+/*
+ * We received a remembrance update from the cathedral. Pass the received
+ * addresses and whatnot directly to the event callback if set.
+ */
+static void
+cathedral_remembrance_recv(struct kyrka *ctx, struct kyrka_offer *op)
+{
+	int				i;
+	union kyrka_event		evt;
+	struct kyrka_remembrance_offer	*data;
+
+	PRECOND(ctx != NULL);
+	PRECOND(op != NULL);
+	PRECOND(op->data.type == KYRKA_OFFER_TYPE_REMEMBRANCE);
+
+	if (ctx->event == NULL)
+		return;
+
+	data = &op->data.offer.remembrance;
+	evt.type = KYRKA_EVENT_REMEMBRANCE_RECEIVED;
+
+	for (i = 0; i < KYRKA_CATHEDRALS_MAX; i++) {
+		evt.remembrance.ips[i] = data->ips[i];
+		evt.remembrance.ports[i] = data->ports[i];
+	}
 
 	ctx->event(ctx, &evt, ctx->udata);
 }

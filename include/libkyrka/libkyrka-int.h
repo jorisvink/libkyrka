@@ -122,6 +122,9 @@
 /* The amount of peers per flock. */
 #define KYRKA_PEERS_PER_FLOCK		255
 
+/* The maximum number of federated cathedrals we can have. */
+#define KYRKA_CATHEDRALS_MAX		32
+
 /*
  * The ambry AAD data.
  */
@@ -247,12 +250,15 @@ struct kyrka_ifc {
  *	1) A key offering (between peers)
  *	2) An ambry offering (from cathedral to us)
  *	3) An info offering (from us to cathedral, or cathedral to us)
+ *	4) A liturgy offering (from us to cathedral, or cathedral to us)
+ *	5) A remembrance offering (from cathedral to us)
  */
 
 #define KYRKA_OFFER_TYPE_KEY		1
 #define KYRKA_OFFER_TYPE_AMBRY		2
 #define KYRKA_OFFER_TYPE_INFO		3
 #define KYRKA_OFFER_TYPE_LITURGY	4
+#define KYRKA_OFFER_TYPE_REMEMBRANCE	5
 
 struct kyrka_offer_hdr {
 	u_int64_t		magic;
@@ -274,6 +280,13 @@ struct kyrka_ambry_offer {
 	u_int8_t		key[KYRKA_AMBRY_KEY_LEN];
 	u_int8_t		tag[KYRKA_AMBRY_TAG_LEN];
 } __attribute__((packed));
+
+struct kyrka_remembrance_offer {
+	u_int32_t		ips[KYRKA_CATHEDRALS_MAX];
+	u_int16_t		ports[KYRKA_CATHEDRALS_MAX];
+} __attribute__((packed));
+
+#define KYRKA_INFO_FLAG_REMEMBRANCE	(1 << 0)
 
 struct kyrka_info_offer {
 	u_int32_t		flags;
@@ -298,6 +311,7 @@ struct kyrka_liturgy_offer {
 	u_int16_t		group;
 	u_int8_t		peers[KYRKA_PEERS_PER_FLOCK];
 	u_int8_t		hidden;
+	u_int32_t		flags;
 } __attribute__((packed));
 
 struct kyrka_offer_data {
@@ -309,6 +323,7 @@ struct kyrka_offer_data {
 		struct kyrka_info_offer		info;
 		struct kyrka_ambry_offer	ambry;
 		struct kyrka_liturgy_offer	liturgy;
+		struct kyrka_remembrance_offer	remembrance;
 	} offer;
 } __attribute__((packed));
 
@@ -405,7 +420,8 @@ struct kyrka {
 		u_int32_t		ambry;
 		u_int32_t		identity;
 		u_int16_t		group;
-		u_int8_t		discoverable;
+		int			remembrance;
+		int			discoverable;
 		u_int8_t		secret[KYRKA_KEY_LENGTH];
 	} cathedral;
 };

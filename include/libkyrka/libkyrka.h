@@ -33,6 +33,9 @@ extern "C" {
 /* The amount of peers per flock. */
 #define KYRKA_PEERS_PER_FLOCK		255
 
+/* The maximum number of federated cathedrals we can have. */
+#define KYRKA_CATHEDRALS_MAX		32
+
 /*
  * Library error codes.
  */
@@ -56,13 +59,14 @@ extern "C" {
  * Events that can occur and can be seen if an event callback was
  * given to kyrka_ctx_alloc().
  */
-#define KYRKA_EVENT_TX_ACTIVE		1
-#define KYRKA_EVENT_RX_ACTIVE		2
-#define KYRKA_EVENT_TX_EXPIRED		3
-#define KYRKA_EVENT_PEER_UPDATE		4
-#define KYRKA_EVENT_TX_ERASED		5
-#define KYRKA_EVENT_AMBRY_RECEIVED	6
-#define KYRKA_EVENT_LITURGY_RECEIVED	7
+#define KYRKA_EVENT_TX_ACTIVE			1
+#define KYRKA_EVENT_RX_ACTIVE			2
+#define KYRKA_EVENT_TX_EXPIRED			3
+#define KYRKA_EVENT_PEER_UPDATE			4
+#define KYRKA_EVENT_TX_ERASED			5
+#define KYRKA_EVENT_AMBRY_RECEIVED		6
+#define KYRKA_EVENT_LITURGY_RECEIVED		7
+#define KYRKA_EVENT_REMEMBRANCE_RECEIVED	8
 
 struct kyrka_event_spi_active {
 	u_int32_t			type;
@@ -86,6 +90,12 @@ struct kyrka_event_liturgy {
 	u_int8_t			peers[KYRKA_PEERS_PER_FLOCK];
 };
 
+struct kyrka_event_remembrance {
+	u_int32_t			type;
+	u_int32_t			ips[KYRKA_CATHEDRALS_MAX];
+	u_int32_t			ports[KYRKA_CATHEDRALS_MAX];
+};
+
 union kyrka_event {
 	u_int32_t			type;
 	struct kyrka_event_spi_active	tx;
@@ -93,6 +103,7 @@ union kyrka_event {
 	struct kyrka_event_peer		peer;
 	struct kyrka_event_ambry	ambry;
 	struct kyrka_event_liturgy	liturgy;
+	struct kyrka_event_remembrance	remembrance;
 };
 
 /*
@@ -108,7 +119,9 @@ struct kyrka_cathedral_cfg {
 	u_int16_t	group;
 	u_int16_t	tunnel;
 	u_int32_t	identity;
-	u_int8_t	discoverable;
+
+	int		remembrance;
+	int		discoverable;
 
 	void		(*send)(const void *, size_t, u_int64_t, void *);
 };
