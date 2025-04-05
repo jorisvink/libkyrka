@@ -70,10 +70,10 @@ kyrka_cathedral_config(struct kyrka *ctx, struct kyrka_cathedral_cfg *cfg)
 	ctx->cathedral.flock = cfg->flock;
 	ctx->cathedral.group = cfg->group;
 	ctx->cathedral.ifc.send = cfg->send;
+	ctx->cathedral.hidden = cfg->hidden;
 	ctx->cathedral.ifc.udata = cfg->udata;
 	ctx->cathedral.identity = cfg->identity;
 	ctx->cathedral.remembrance = cfg->remembrance;
-	ctx->cathedral.discoverable = cfg->discoverable;
 
 	if (cfg->secret != NULL) {
 		if (kyrka_key_load_from_path(ctx, cfg->secret,
@@ -287,8 +287,7 @@ cathedral_send_offer(struct kyrka *ctx, u_int64_t magic)
 		nyfe_mem_zero(liturgy, sizeof(*liturgy));
 		liturgy->id = ctx->cfg.spi;
 		liturgy->group = htobe16(ctx->cathedral.group);
-		if (ctx->cathedral.discoverable == 0)
-			liturgy->hidden = 1;
+		liturgy->hidden = ctx->cathedral.hidden;
 	}
 
 	nyfe_zeroize_register(&okm, sizeof(okm));

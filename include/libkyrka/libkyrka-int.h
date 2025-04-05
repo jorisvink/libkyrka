@@ -420,8 +420,8 @@ struct kyrka {
 		u_int32_t		ambry;
 		u_int32_t		identity;
 		u_int16_t		group;
+		int			hidden;
 		int			remembrance;
-		int			discoverable;
 		u_int8_t		secret[KYRKA_KEY_LENGTH];
 	} cathedral;
 };

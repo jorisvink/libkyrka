@@ -120,8 +120,8 @@ struct kyrka_cathedral_cfg {
 	u_int16_t	tunnel;
 	u_int32_t	identity;
 
+	int		hidden;
 	int		remembrance;
-	int		discoverable;
 
 	void		(*send)(const void *, size_t, u_int64_t, void *);
 };
