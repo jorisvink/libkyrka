@@ -297,6 +297,7 @@ struct kyrka_liturgy_offer {
 	u_int8_t		id;
 	u_int16_t		group;
 	u_int8_t		peers[KYRKA_PEERS_PER_FLOCK];
+	u_int8_t		hidden;
 } __attribute__((packed));
 
 struct kyrka_offer_data {
@@ -404,6 +405,7 @@ struct kyrka {
 		u_int32_t		ambry;
 		u_int32_t		identity;
 		u_int16_t		group;
+		u_int8_t		discoverable;
 		u_int8_t		secret[KYRKA_KEY_LENGTH];
 	} cathedral;
 };
