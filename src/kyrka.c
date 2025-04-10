@@ -55,6 +55,9 @@ kyrka_ctx_alloc(void (*event)(struct kyrka *, union kyrka_event *, void *),
 	if (kyrka_cipher_init() == -1)
 		return (NULL);
 
+	ctx->offer.default_ttl = 5;
+	ctx->offer.default_next_send = 1;
+
 	nyfe_zeroize_register(ctx, sizeof(*ctx));
 
 	nyfe_random_init();
@@ -140,8 +143,8 @@ kyrka_device_kek_load(KYRKA *ctx, const void *secret, size_t len)
 }
 
 /*
- * The application thinks the peer timed out, so we just erase any
- * installed TX key and send an event back if we did so.
+ * The application thinks the peer timed out, so we erase all keys
+ * send an event back if we did so.
  */
 int
 kyrka_peer_timeout(KYRKA *ctx)
@@ -151,15 +154,17 @@ kyrka_peer_timeout(KYRKA *ctx)
 	if (ctx == NULL)
 		return (-1);
 
-	if (ctx->tx.cipher == NULL)
-		return (0);
+	if (ctx->tx.cipher != NULL)
+		kyrka_cipher_cleanup(ctx->tx.cipher);
 
-	kyrka_cipher_cleanup(ctx->tx.cipher);
-	ctx->tx.cipher = NULL;
+	if (ctx->rx.cipher != NULL)
+		kyrka_cipher_cleanup(ctx->rx.cipher);
+
+	nyfe_mem_zero(&ctx->rx, sizeof(ctx->rx));
+	nyfe_mem_zero(&ctx->tx, sizeof(ctx->tx));
 
 	if (ctx->event != NULL) {
-		evt.tx.spi = ctx->tx.spi;
-		evt.type = KYRKA_EVENT_TX_ERASED;
+		evt.type = KYRKA_EVENT_KEYS_ERASED;
 		ctx->event(ctx, &evt, ctx->udata);
 	}
 

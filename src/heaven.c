@@ -58,7 +58,6 @@ int
 kyrka_heaven_input(struct kyrka *ctx, const void *data, size_t len)
 {
 	u_int32_t			spi;
-	union kyrka_event		evt;
 	struct kyrka_packet		pkt;
 	struct kyrka_ipsec_hdr		*hdr;
 	struct kyrka_ipsec_tail		*tail;
@@ -86,15 +85,8 @@ kyrka_heaven_input(struct kyrka *ctx, const void *data, size_t len)
 
 	if (ctx->tx.seqnr >= KYRKA_SA_PACKET_HARD) {
 		kyrka_cipher_cleanup(ctx->tx.cipher);
-		ctx->tx.cipher = NULL;
+		nyfe_mem_zero(&ctx->tx, sizeof(ctx->tx));
 		ctx->last_error = KYRKA_ERROR_NO_TX_KEY;
-
-		if (ctx->event != NULL) {
-			evt.tx.spi = ctx->tx.spi;
-			evt.type = KYRKA_EVENT_TX_EXPIRED;
-			ctx->event(ctx, &evt, ctx->udata);
-		}
-
 		return (-1);
 	}
 

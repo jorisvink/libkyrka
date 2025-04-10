@@ -59,19 +59,24 @@ extern "C" {
  * Events that can occur and can be seen if an event callback was
  * given to kyrka_ctx_alloc().
  */
-#define KYRKA_EVENT_TX_ACTIVE			1
-#define KYRKA_EVENT_RX_ACTIVE			2
-#define KYRKA_EVENT_TX_EXPIRED			3
-#define KYRKA_EVENT_PEER_UPDATE			4
-#define KYRKA_EVENT_TX_ERASED			5
-#define KYRKA_EVENT_AMBRY_RECEIVED		6
-#define KYRKA_EVENT_LITURGY_RECEIVED		7
-#define KYRKA_EVENT_REMEMBRANCE_RECEIVED	8
+#define KYRKA_EVENT_KEYS_INFO			1
+#define KYRKA_EVENT_KEYS_ERASED			2
+#define KYRKA_EVENT_EXCHANGE_INFO		3
+#define KYRKA_EVENT_PEER_DISCOVERY		4
+#define KYRKA_EVENT_AMBRY_RECEIVED		5
+#define KYRKA_EVENT_LITURGY_RECEIVED		6
+#define KYRKA_EVENT_REMEMBRANCE_RECEIVED	7
 
-struct kyrka_event_spi_active {
+struct kyrka_event_keys_info {
 	u_int32_t			type;
-	u_int32_t			spi;
-	u_int64_t			id;
+	u_int32_t			tx_spi;
+	u_int32_t			rx_spi;
+	u_int64_t			peer_id;
+};
+
+struct kyrka_event_exchange_info {
+	u_int32_t			type;
+	const char			*reason;
 };
 
 struct kyrka_event_peer {
@@ -97,13 +102,13 @@ struct kyrka_event_remembrance {
 };
 
 union kyrka_event {
-	u_int32_t			type;
-	struct kyrka_event_spi_active	tx;
-	struct kyrka_event_spi_active	rx;
-	struct kyrka_event_peer		peer;
-	struct kyrka_event_ambry	ambry;
-	struct kyrka_event_liturgy	liturgy;
-	struct kyrka_event_remembrance	remembrance;
+	u_int32_t				type;
+	struct kyrka_event_keys_info		keys;
+	struct kyrka_event_peer			peer;
+	struct kyrka_event_ambry		ambry;
+	struct kyrka_event_liturgy		liturgy;
+	struct kyrka_event_exchange_info	exchange;
+	struct kyrka_event_remembrance		remembrance;
 };
 
 /*
@@ -142,8 +147,7 @@ void	kyrka_emergency_erase(void);
 KYRKA	*kyrka_ctx_alloc(void (*event)(KYRKA *, union kyrka_event *, void *),
 	    void *);
 
-int	kyrka_key_offer(KYRKA *);
-int	kyrka_key_generate(KYRKA *);
+int	kyrka_key_manage(KYRKA *);
 int	kyrka_secret_load(KYRKA *, const char *);
 int	kyrka_device_kek_load(KYRKA *, const void *, size_t);
 int	kyrka_cathedral_secret_load(KYRKA *, const void *, size_t);

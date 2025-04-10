@@ -148,8 +148,10 @@ kyrka_purgatory_input(struct kyrka *ctx, const void *data, size_t len)
 	cipher.data_len = ctlen;
 	cipher.tag = ptr + ctlen;
 
-	if (kyrka_cipher_decrypt(&cipher) == -1)
+	if (kyrka_cipher_decrypt(&cipher) == -1) {
+		ctx->last_error = KYRKA_ERROR_INTERNAL;
 		return (-1);
+	}
 
 	purgatory_arwin_update(&ctx->rx, hdr);
 
@@ -164,6 +166,8 @@ kyrka_purgatory_input(struct kyrka *ctx, const void *data, size_t len)
 
 	if (tail->next != 0)
 		return (0);
+
+	ctx->rx.pkt++;
 
 	ctx->heaven.send(kyrka_packet_data(&pkt),
 	    pkt.length, pn, ctx->heaven.udata);

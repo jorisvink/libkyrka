@@ -197,7 +197,7 @@ kyrka_cathedral_decrypt(struct kyrka *ctx, const void *data, size_t len)
 
 	nyfe_memcpy(&offer, data, sizeof(offer));
 
-	kyrka_cipher_kdf(ctx, ctx->cathedral.secret,
+	kyrka_offer_kdf(ctx->cathedral.secret,
 	    sizeof(ctx->cathedral.secret), KYRKA_CATHEDRAL_KDF_LABEL,
 	    &okm, offer.hdr.seed, sizeof(offer.hdr.seed));
 
@@ -292,7 +292,7 @@ cathedral_send_offer(struct kyrka *ctx, u_int64_t magic)
 
 	nyfe_zeroize_register(&okm, sizeof(okm));
 
-	kyrka_cipher_kdf(ctx, ctx->cathedral.secret,
+	kyrka_offer_kdf(ctx->cathedral.secret,
 	    sizeof(ctx->cathedral.secret), KYRKA_CATHEDRAL_KDF_LABEL, &okm,
 	    op->hdr.seed, sizeof(op->hdr.seed));
 
@@ -332,7 +332,7 @@ cathedral_p2p_recv(struct kyrka *ctx, struct kyrka_offer *op)
 	if (info->peer_ip == info->local_ip)
 		return;
 
-	evt.type = KYRKA_EVENT_PEER_UPDATE;
+	evt.type = KYRKA_EVENT_PEER_DISCOVERY;
 	evt.peer.ip = info->peer_ip;
 	evt.peer.port = info->peer_port;
 

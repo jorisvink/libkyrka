@@ -215,12 +215,11 @@ struct kyrka_encap_hdr {
  * A security association and space to operate on packets.
  */
 struct kyrka_sa {
-	time_t		age;
+	u_int64_t	pkt;
 	u_int32_t	spi;
 	u_int32_t	salt;
 	u_int64_t	seqnr;
 	u_int64_t	bitmap;
-	u_int64_t	lastpkt;
 	void		*cipher;
 };
 
@@ -353,6 +352,17 @@ struct kyrka_key {
 	u_int8_t		key[KYRKA_KEY_LENGTH];
 };
 
+/*
+ * Data structure used for kyrka_traffic_kdf() to pass the
+ * public and secret values.
+ */
+struct kyrka_kex {
+	u_int8_t		pub1[32];
+	u_int8_t		pub2[32];
+	u_int8_t		remote[32];
+	u_int8_t		private[32];
+};
+
 /* If a secret has been loaded into the context. */
 #define KYRKA_FLAG_SECRET_SET		(1 << 0)
 
@@ -402,7 +412,13 @@ struct kyrka {
 	/* Current outgoing key offer. */
 	struct {
 		u_int32_t		spi;
+		u_int32_t		ttl;
 		u_int32_t		salt;
+		u_int64_t		next;
+		u_int64_t		pulse;
+		u_int8_t		public[32];
+		u_int32_t		default_ttl;
+		u_int32_t		default_next_send;
 		u_int8_t		key[KYRKA_KEY_LENGTH];
 	} offer;
 
@@ -444,9 +460,10 @@ void	*kyrka_cipher_setup(const u_int8_t *, size_t);
 int	kyrka_cathedral_decrypt(struct kyrka *, const void *, size_t);
 
 /* src/kdf.c */
-
-void	kyrka_cipher_kdf(struct kyrka *, const u_int8_t *, size_t,
-	    const char *, struct kyrka_key *, void *, size_t);
+int	kyrka_traffic_kdf(struct kyrka *, struct kyrka_kex *,
+	    u_int8_t *, size_t);
+void	kyrka_offer_kdf(const u_int8_t *, size_t, const char *,
+	    struct kyrka_key *, void *, size_t);
 
 /* src/key.c */
 void	kyrka_key_unwrap(struct kyrka *, const void *, size_t);
