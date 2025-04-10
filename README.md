@@ -122,29 +122,8 @@ if (kyrka_purgatory_input(ctx, pkt, pktlen) == -1)
 	errx(1, "kyrka_purgatory_input: %d", kyrka_last_error(ctx));
 ```
 
-Your program is responsible for generating new keys via kyrka_key_generate()
-and offering these to your peer via kyrka_key_offer().
-
-```c
-/* Generate fresh RX key every 3600 seconds. */
-if ((now - last_key) >= 3600) {
-	last_key = now;
-	if (kyrka_key_generate(ctx) == -1)
-		errx(1, "kyrka_key_generate: %d", kyrka_last_error(ctx));
-}
-
-...
-
-/* Send our active key in wrapped form to our peer. */
-if ((now - last_send) >= 10) {
-	last_send = now;
-	if (kyrka_key_offer(ctx) == -1)
-		errx(1, "kyrka_key_offer: %d", kyrka_last_error(ctx));
-}
-```
-
-You can choose yourself how often you want to rotate keys and offer
-them to your peer.
+Your program MUST call kyrka_key_manage() every event tick as this will
+take care of the keying for you entirely.
 
 When using a cathedral libkyrka can automatically rollover secrets
 using the ambry distributions from the cathedral.
