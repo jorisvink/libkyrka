@@ -69,8 +69,13 @@ kyrka_offer_kdf(const u_int8_t *secret, size_t secret_len,
 }
 
 /*
- * Derive new traffic key material based on our shared secret and the
- * given ikm from the asymmetrical negotiation.
+ * Derive a new traffic key based on our shared secret, the derived secret
+ * from the ecdh exchange and the direction-specific derived secret from
+ * the ML-KEM-1024 exchange.
+ *
+ * IKM = len(ecdh_ss) || ecdh_ss || len(mlkem1024_ss) || mlkem1024_ss ||
+ *       len(local.pub) || local.pub || len(offer.pub) || offer.pub || dir
+ * OKM = KMAC256(traffic_key, IKM)
  */
 int
 kyrka_traffic_kdf(struct kyrka *ctx, struct kyrka_kex *kx,
@@ -84,7 +89,7 @@ kyrka_traffic_kdf(struct kyrka *ctx, struct kyrka_kex *kx,
 	PRECOND(ctx != NULL);
 	PRECOND(kx != NULL);
 	PRECOND(okm != NULL);
-	PRECOND(okm_len == KYRKA_KEY_LENGTH * 2);
+	PRECOND(okm_len == KYRKA_KEY_LENGTH);
 
 	nyfe_zeroize_register(ikm, sizeof(ikm));
 
@@ -106,6 +111,10 @@ kyrka_traffic_kdf(struct kyrka *ctx, struct kyrka_kex *kx,
 	len = sizeof(ikm);
 	nyfe_kmac256_update(&kdf, &len, sizeof(len));
 	nyfe_kmac256_update(&kdf, ikm, sizeof(ikm));
+
+	len = sizeof(kx->kem);
+	nyfe_kmac256_update(&kdf, &len, sizeof(len));
+	nyfe_kmac256_update(&kdf, kx->kem, sizeof(kx->kem));
 
 	len = sizeof(kx->pub1);
 	nyfe_kmac256_update(&kdf, &len, sizeof(len));

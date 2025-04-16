@@ -55,7 +55,7 @@ kyrka_ctx_alloc(void (*event)(struct kyrka *, union kyrka_event *, void *),
 	if (kyrka_cipher_init() == -1)
 		return (NULL);
 
-	ctx->offer.default_ttl = 5;
+	ctx->offer.default_ttl = 15;
 	ctx->offer.default_next_send = 1;
 
 	nyfe_zeroize_register(ctx, sizeof(*ctx));

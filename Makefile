@@ -4,6 +4,7 @@ CC?=cc
 OBJDIR?=obj
 LIB=libkyrka.a
 LIBNYFE=nyfe/libnyfe.a
+LIBMLKEM1024=mlkem1024/libmlkem1024.a
 VERSION=$(OBJDIR)/version.c
 
 DESTDIR?=
@@ -25,6 +26,7 @@ SRC=	src/kyrka.c \
 	src/kdf.c \
 	src/key.c \
 	src/heaven.c \
+	src/mlkem1024.c \
 	src/offer.c \
 	src/libsodium_aes_gcm.c \
 	src/packet.c \
@@ -55,18 +57,29 @@ endif
 OBJS=	$(SRC:src/%.c=$(OBJDIR)/%.o)
 OBJS+=	$(OBJDIR)/version.o
 
-LIBNYFE_OBJS=	nyfe/obj/sha3.o \
-		nyfe/obj/kmac256.o \
-		nyfe/obj/keccak1600.o \
-		nyfe/obj/agelas.o \
-		nyfe/obj/mem.o \
-		nyfe/obj/random.o \
-		nyfe/obj/file.o
+LIBNYFE_OBJS=		nyfe/obj/sha3.o \
+			nyfe/obj/kmac256.o \
+			nyfe/obj/keccak1600.o \
+			nyfe/obj/agelas.o \
+			nyfe/obj/mem.o \
+			nyfe/obj/random.o \
+			nyfe/obj/file.o
+
+LIBMLKEM1024_OBJS=	mlkem1024/obj/cbd.o \
+			mlkem1024/obj/fips202.o \
+			mlkem1024/obj/indcpa.o \
+			mlkem1024/obj/kem.o \
+			mlkem1024/obj/ntt.o \
+			mlkem1024/obj/poly.o \
+			mlkem1024/obj/polyvec.o \
+			mlkem1024/obj/reduce.o \
+			mlkem1024/obj/symmetric-shake.o \
+			mlkem1024/obj/verify.o
 
 all: $(LIB)
 
-$(LIB): $(OBJDIR) $(LIBNYFE) $(OBJS) $(VERSION)
-	$(AR) rcs $(LIB) $(OBJS) $(LIBNYFE_OBJS)
+$(LIB): $(OBJDIR) $(LIBNYFE) $(LIBMLKEM1024) $(OBJS) $(VERSION)
+	$(AR) rcs $(LIB) $(OBJS) $(LIBNYFE_OBJS) $(LIBMLKEM1024_OBJS)
 
 $(VERSION): $(OBJDIR) force
 	@if [ -f RELEASE ]; then \
@@ -94,6 +107,9 @@ install:
 $(LIBNYFE):
 	$(MAKE) -C nyfe
 
+$(LIBMLKEM1024):
+	$(MAKE) -C mlkem1024
+
 src/kyrka.c: $(VERSION)
 
 $(OBJDIR):
@@ -104,6 +120,7 @@ $(OBJDIR)/%.o: src/%.c
 
 clean:
 	$(MAKE) -C nyfe clean
+	$(MAKE) -C mlkem1024 clean
 	rm -f $(VERSION)
 	rm -rf $(OBJDIR) $(LIB)
 

@@ -100,7 +100,7 @@ kyrka_purgatory_input(struct kyrka *ctx, const void *data, size_t len)
 
 	if ((spi == (KYRKA_KEY_OFFER_MAGIC >> 32)) &&
 	    (seq == (KYRKA_KEY_OFFER_MAGIC & 0xffffffff))) {
-		kyrka_key_unwrap(ctx, data, len);
+		kyrka_key_offer_decrypt(ctx, data, len);
 		return (0);
 	}
 

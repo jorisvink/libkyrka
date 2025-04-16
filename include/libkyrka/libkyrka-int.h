@@ -61,69 +61,97 @@
 	} while (0)
 
 /* Length of our symmetrical keys, in bytes. */
-#define KYRKA_KEY_LENGTH		32
+#define KYRKA_KEY_LENGTH			32
 
 /* Length for an encapsulation key in hex. */
-#define KYRKA_ENCAP_HEX_LEN		(KYRKA_KEY_LENGTH * 2)
+#define KYRKA_ENCAP_HEX_LEN			(KYRKA_KEY_LENGTH * 2)
 
 /* The nonce size, in our case 96-bit. */
-#define KYRKA_NONCE_LENGTH		12
+#define KYRKA_NONCE_LENGTH			12
 
 /* The tag size, in our case 128-bit. */
-#define KYRKA_TAG_LENGTH		16
+#define KYRKA_TAG_LENGTH			16
 
 /* ESP next_proto value for a heartbeat. */
-#define KYRKA_PACKET_HEARTBEAT		0xfc
+#define KYRKA_PACKET_HEARTBEAT			0xfc
 
 /* The number of seconds between heartbeats. */
-#define KYRKA_HEARTBEAT_INTERVAL	15
+#define KYRKA_HEARTBEAT_INTERVAL		15
 
 /* Maximum number of packets that can be sent under an SA. */
-#define KYRKA_SA_PACKET_SOFT		(1ULL << 33)
-#define KYRKA_SA_PACKET_HARD		(1ULL << 34)
+#define KYRKA_SA_PACKET_SOFT			(1ULL << 33)
+#define KYRKA_SA_PACKET_HARD			(1ULL << 34)
 
 /* Maximum number of seconds an SA can be alive. */
-#define KYRKA_SA_LIFETIME_SOFT		3500
-#define KYRKA_SA_LIFETIME_HARD		3600
+#define KYRKA_SA_LIFETIME_SOFT			3500
+#define KYRKA_SA_LIFETIME_HARD			3600
 
 /* The half-time window in which offers are valid. */
-#define KYRKA_OFFER_VALID		5
+#define KYRKA_OFFER_VALID			5
 
 /* The magic for a key offer packet (SACRAMNT). */
-#define KYRKA_KEY_OFFER_MAGIC		0x53414352414D4E54
+#define KYRKA_KEY_OFFER_MAGIC			0x53414352414D4E54
 
 /* The length of the seed in a key offer packet. */
-#define KYRKA_KEY_OFFER_SALT_LEN	64
+#define KYRKA_KEY_OFFER_SALT_LEN		64
 
 /* The KDF label for the cathedral. */
-#define KYRKA_CATHEDRAL_KDF_LABEL	"SANCTUM.CATHEDRAL.KDF"
+#define KYRKA_CATHEDRAL_KDF_LABEL		"SANCTUM.CATHEDRAL.KDF"
 
 /* The KDF label for traffic encapsulation. */
-#define KYRKA_ENCAP_LABEL		"SANCTUM.ENCAP.KDF"
+#define KYRKA_ENCAP_LABEL			"SANCTUM.ENCAP.KDF"
 
 /* The label for KMAC256 for ambry. */
-#define KYRKA_AMBRY_KDF			"SANCTUM.AMBRY.KDF"
+#define KYRKA_AMBRY_KDF				"SANCTUM.AMBRY.KDF"
 
 /* Length of a seed using for deriving Ambry wrapping keys. */
-#define KYRKA_AMBRY_SEED_LEN		64
+#define KYRKA_AMBRY_SEED_LEN			64
 
 /* Length of a KEK used for an Ambry. */
-#define KYRKA_AMBRY_KEK_LEN		KYRKA_KEY_LENGTH
+#define KYRKA_AMBRY_KEK_LEN			KYRKA_KEY_LENGTH
 
 /* Length of the key carried in an Ambry. */
-#define KYRKA_AMBRY_KEY_LEN		KYRKA_KEY_LENGTH
+#define KYRKA_AMBRY_KEY_LEN			KYRKA_KEY_LENGTH
 
 /* Length of an authentication tag for an Ambry. */
-#define KYRKA_AMBRY_TAG_LEN		KYRKA_TAG_LENGTH
+#define KYRKA_AMBRY_TAG_LEN			KYRKA_TAG_LENGTH
 
 /* Anti-replay window size. */
-#define KYRKA_ARWIN_SIZE		64
+#define KYRKA_ARWIN_SIZE			64
 
 /* The amount of peers per flock. */
-#define KYRKA_PEERS_PER_FLOCK		255
+#define KYRKA_PEERS_PER_FLOCK			255
 
 /* The maximum number of federated cathedrals we can have. */
-#define KYRKA_CATHEDRALS_MAX		32
+#define KYRKA_CATHEDRALS_MAX			32
+
+/* Number of bytes for x25519 scalars. */
+#define KYRKA_X25519_SCALAR_BYTES		32
+
+/* Number of bytes for the ML-KEM-1024 shared secret. */
+#define KYRKA_MLKEM_1024_KEY_BYTES		32
+
+/* Number of bytes for the ML-KEM-1024 secret key. */
+#define KYRKA_MLKEM_1024_SECRETKEYBYTES		3168
+
+/* Number of bytes for the ML-KEM-1024 public key we share. */
+#define KYRKA_MLKEM_1024_PUBLICKEYBYTES		1568
+
+/* Number of bytes for the ML-KEM-1024 ciphertext we share. */
+#define KYRKA_MLKEM_1024_CIPHERTEXTBYTES	\
+    KYRKA_MLKEM_1024_PUBLICKEYBYTES
+
+/* Shall we send PK during key offering. */
+#define KYRKA_OFFER_INCLUDE_KEM_PK		(1 << 0)
+
+/* Shall we send CT during key offering. */
+#define KYRKA_OFFER_INCLUDE_KEM_CT		(1 << 1)
+
+/* The RX direction for session key derivation. */
+#define KYRKA_KEY_DIRECTION_RX			0x01
+
+/* The TX direction for session key derivation. */
+#define KYRKA_KEY_DIRECTION_TX			0x02
 
 /*
  * The ambry AAD data.
@@ -251,6 +279,7 @@ struct kyrka_ifc {
  *	3) An info offering (from us to cathedral, or cathedral to us)
  *	4) A liturgy offering (from us to cathedral, or cathedral to us)
  *	5) A remembrance offering (from cathedral to us)
+ *	6) An exchange offering (between peers)
  */
 
 #define KYRKA_OFFER_TYPE_KEY		1
@@ -258,12 +287,40 @@ struct kyrka_ifc {
 #define KYRKA_OFFER_TYPE_INFO		3
 #define KYRKA_OFFER_TYPE_LITURGY	4
 #define KYRKA_OFFER_TYPE_REMEMBRANCE	5
+#define KYRKA_OFFER_TYPE_EXCHANGE	6
+
+/* The maximum number of fragments sent in a KEM offer. */
+#define KYRKA_OFFER_KEM_FRAGMENTS		4
+
+/* The value we get when all packets are received. */
+#define KYRKA_OFFER_KEM_FRAGMENTS_DONE	\
+    ((1 << KYRKA_OFFER_KEM_FRAGMENTS) - 1)
+
+/* This is ML-KEM-1024 its pubkey len / fragments. */
+#define KYRKA_OFFER_KEM_FRAGMENT_SIZE		\
+    (KYRKA_MLKEM_1024_PUBLICKEYBYTES / KYRKA_OFFER_KEM_FRAGMENTS)
+
+/* Does the exchange offer include an ML-KEM-1024 public key fragment. */
+#define KYRKA_OFFER_STATE_KEM_PK_FRAGMENT	1
+
+/* Does the exchange offer include an ML-KEM-1024 cipher text fragment. */
+#define KYRKA_OFFER_STATE_KEM_CT_FRAGMENT	2
 
 struct kyrka_offer_hdr {
 	u_int64_t		magic;
 	u_int64_t		flock;
 	u_int32_t		spi;
 	u_int8_t		seed[KYRKA_KEY_OFFER_SALT_LEN];
+} __attribute__((packed));
+
+struct kyrka_exchange_offer {
+	u_int64_t		id;
+	u_int32_t		spi;
+	u_int32_t		salt;
+	u_int8_t		state;
+	u_int8_t		fragment;
+	u_int8_t		ecdh[KYRKA_KEY_LENGTH];
+	u_int8_t		kem[KYRKA_OFFER_KEM_FRAGMENT_SIZE];
 } __attribute__((packed));
 
 struct kyrka_key_offer {
@@ -322,6 +379,7 @@ struct kyrka_offer_data {
 		struct kyrka_info_offer		info;
 		struct kyrka_ambry_offer	ambry;
 		struct kyrka_liturgy_offer	liturgy;
+		struct kyrka_exchange_offer	exchange;
 		struct kyrka_remembrance_offer	remembrance;
 	} offer;
 } __attribute__((packed));
@@ -353,14 +411,24 @@ struct kyrka_key {
 };
 
 /*
- * Data structure used for kyrka_traffic_kdf() to pass the
- * public and secret values.
+ * Used to interface with the ML-KEM-1024 api.
+ */
+struct kyrka_mlkem1024 {
+	u_int8_t	ss[KYRKA_KEY_LENGTH];
+	u_int8_t	sk[KYRKA_MLKEM_1024_SECRETKEYBYTES];
+	u_int8_t	pk[KYRKA_MLKEM_1024_PUBLICKEYBYTES];
+	u_int8_t	ct[KYRKA_MLKEM_1024_CIPHERTEXTBYTES];
+};
+
+/*
+ * Data structure used when calling sanctum_traffic_kdf().
  */
 struct kyrka_kex {
-	u_int8_t		pub1[32];
-	u_int8_t		pub2[32];
-	u_int8_t		remote[32];
-	u_int8_t		private[32];
+	u_int8_t		kem[KYRKA_MLKEM_1024_KEY_BYTES];
+	u_int8_t		pub1[KYRKA_X25519_SCALAR_BYTES];
+	u_int8_t		pub2[KYRKA_X25519_SCALAR_BYTES];
+	u_int8_t		remote[KYRKA_X25519_SCALAR_BYTES];
+	u_int8_t		private[KYRKA_X25519_SCALAR_BYTES];
 };
 
 /* If a secret has been loaded into the context. */
@@ -377,6 +445,17 @@ struct kyrka_kex {
 
 /* XXX */
 union kyrka_event;
+
+/*
+ * Exchange data for the key offers.
+ */
+struct kyrka_xchg_info {
+	struct kyrka_mlkem1024		kem;
+	u_int32_t			spi;
+	u_int32_t			salt;
+	u_int8_t			public[KYRKA_X25519_SCALAR_BYTES];
+	u_int8_t			private[KYRKA_X25519_SCALAR_BYTES];
+};
 
 /*
  * The holy church, where data is blessed and safeguarded.
@@ -409,17 +488,18 @@ struct kyrka {
 	struct kyrka_ifc		heaven;
 	struct kyrka_ifc		purgatory;
 
-	/* Current outgoing key offer. */
+	/* Current key offer. */
 	struct {
-		u_int32_t		spi;
+		struct kyrka_xchg_info	local;
+		struct kyrka_xchg_info	remote;
 		u_int32_t		ttl;
-		u_int32_t		salt;
 		u_int64_t		next;
+		u_int32_t		flags;
 		u_int64_t		pulse;
-		u_int8_t		public[32];
+		u_int8_t		pk_frag;
+		u_int8_t		ct_frag;
 		u_int32_t		default_ttl;
 		u_int32_t		default_next_send;
-		u_int8_t		key[KYRKA_KEY_LENGTH];
 	} offer;
 
 	/* Configurable stuff. */
@@ -456,6 +536,22 @@ int	kyrka_cipher_encrypt(struct kyrka_cipher *);
 int	kyrka_cipher_decrypt(struct kyrka_cipher *);
 void	*kyrka_cipher_setup(const u_int8_t *, size_t);
 
+/* The ML-KEM-1024 API. */
+void	kyrka_mlkem1024_selftest(void);
+void	kyrka_mlkem1024_keypair(struct kyrka_mlkem1024 *);
+void	kyrka_mlkem1024_encapsulate(struct kyrka_mlkem1024 *);
+void	kyrka_mlkem1024_decapsulate(struct kyrka_mlkem1024 *);
+
+/* The mlkem1024 backend api. */
+int	pqcrystals_kyber1024_ref_keypair(u_int8_t *, u_int8_t *);
+int	pqcrystals_kyber1024_ref_keypair_derand(u_int8_t *, u_int8_t *,
+	    const u_int8_t *);
+int	pqcrystals_kyber1024_ref_enc(u_int8_t *, u_int8_t *, const u_int8_t *);
+int	pqcrystals_kyber1024_ref_enc_derand(u_int8_t *, u_int8_t *,
+	    const u_int8_t *, const u_int8_t *);
+int	pqcrystals_kyber1024_ref_dec(u_int8_t *, const u_int8_t *,
+	    const u_int8_t *);
+
 /* src/cathedral.c */
 int	kyrka_cathedral_decrypt(struct kyrka *, const void *, size_t);
 
@@ -466,7 +562,7 @@ void	kyrka_offer_kdf(const u_int8_t *, size_t, const char *,
 	    struct kyrka_key *, void *, size_t);
 
 /* src/key.c */
-void	kyrka_key_unwrap(struct kyrka *, const void *, size_t);
+void	kyrka_key_offer_decrypt(struct kyrka *, const void *, size_t);
 int	kyrka_key_load_from_path(struct kyrka *,
 	    const char *, u_int8_t *, size_t);
 
