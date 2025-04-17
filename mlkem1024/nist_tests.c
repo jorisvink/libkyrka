@@ -23,7 +23,7 @@
 #include <string.h>
 #include <unistd.h>
 
-#include "../include/sanctum_cipher.h"
+#include "libkyrka-int.h"
 
 /*
  * We perform the NIST ACVP AFT tests for ML-KEM-1024 using the
@@ -38,21 +38,21 @@
 #
 struct keygen_test {
 	int		tcid;
-	u_int8_t	z[SANCTUM_KEY_LENGTH];
-	u_int8_t	d[SANCTUM_KEY_LENGTH];
-	u_int8_t	ek[SANCTUM_MLKEM_1024_PUBLICKEYBYTES];
-	u_int8_t	dk[SANCTUM_MLKEM_1024_SECRETKEYBYTES];
+	u_int8_t	z[KYRKA_KEY_LENGTH];
+	u_int8_t	d[KYRKA_KEY_LENGTH];
+	u_int8_t	ek[KYRKA_MLKEM_1024_PUBLICKEYBYTES];
+	u_int8_t	dk[KYRKA_MLKEM_1024_SECRETKEYBYTES];
 } __attribute__((packed));
 
 #define ENCDEC_TEST	"test-vectors/acvp_nist_encap_decap_fips203.bin"
 
 struct encdec_test {
 	int		tcid;
-	u_int8_t	ek[SANCTUM_MLKEM_1024_PUBLICKEYBYTES];
-	u_int8_t	dk[SANCTUM_MLKEM_1024_SECRETKEYBYTES];
-	u_int8_t	ct[SANCTUM_MLKEM_1024_CIPHERTEXTBYTES];
-	u_int8_t	k[SANCTUM_KEY_LENGTH];
-	u_int8_t	m[SANCTUM_KEY_LENGTH];
+	u_int8_t	ek[KYRKA_MLKEM_1024_PUBLICKEYBYTES];
+	u_int8_t	dk[KYRKA_MLKEM_1024_SECRETKEYBYTES];
+	u_int8_t	ct[KYRKA_MLKEM_1024_CIPHERTEXTBYTES];
+	u_int8_t	k[KYRKA_KEY_LENGTH];
+	u_int8_t	m[KYRKA_KEY_LENGTH];
 } __attribute__((packed));
 
 void	fatal(const char *, ...);
@@ -64,8 +64,8 @@ main(void)
 	ssize_t				ret;
 	struct encdec_test		encdec;
 	struct keygen_test		keygen;
-	struct sanctum_mlkem1024	ref, test;
-	u_int8_t			coins[2 * SANCTUM_KEY_LENGTH];
+	struct kyrka_mlkem1024		ref, test;
+	u_int8_t			coins[2 * KYRKA_KEY_LENGTH];
 
 	if ((fd = open(KEYGEN_TEST, O_RDONLY)) == -1)
 		fatal("open: %s", KEYGEN_TEST);
