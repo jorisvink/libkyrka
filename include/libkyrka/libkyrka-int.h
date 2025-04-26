@@ -153,6 +153,11 @@
 /* The TX direction for session key derivation. */
 #define KYRKA_KEY_DIRECTION_TX			0x02
 
+/* Purpose for shared key derivation. */
+#define KYRKA_KDF_KEY_PURPOSE_OFFER		1
+#define KYRKA_KDF_KEY_PURPOSE_TRAFFIC_RX	2
+#define KYRKA_KDF_KEY_PURPOSE_TRAFFIC_TX	3
+
 /*
  * The ambry AAD data.
  */
@@ -424,6 +429,7 @@ struct kyrka_mlkem1024 {
  * Data structure used when calling sanctum_traffic_kdf().
  */
 struct kyrka_kex {
+	int			purpose;
 	u_int8_t		kem[KYRKA_MLKEM_1024_KEY_BYTES];
 	u_int8_t		pub1[KYRKA_X25519_SCALAR_BYTES];
 	u_int8_t		pub2[KYRKA_X25519_SCALAR_BYTES];

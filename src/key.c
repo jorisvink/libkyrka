@@ -548,9 +548,19 @@ key_exchange_finalize(struct kyrka *ctx, struct kyrka_offer *op, u_int8_t dir)
 	if (exchange->id < ctx->local_id) {
 		nyfe_memcpy(kex.pub1, info->public, sizeof(info->public));
 		nyfe_memcpy(kex.pub2, exchange->ecdh, sizeof(exchange->ecdh));
+
+		if (dir == KYRKA_KEY_DIRECTION_RX)
+			kex.purpose = KYRKA_KDF_KEY_PURPOSE_TRAFFIC_RX;
+		else
+			kex.purpose = KYRKA_KDF_KEY_PURPOSE_TRAFFIC_TX;
 	} else {
 		nyfe_memcpy(kex.pub1, exchange->ecdh, sizeof(exchange->ecdh));
 		nyfe_memcpy(kex.pub2, info->public, sizeof(info->public));
+
+		if (dir == KYRKA_KEY_DIRECTION_RX)
+			kex.purpose = KYRKA_KDF_KEY_PURPOSE_TRAFFIC_TX;
+		else
+			kex.purpose = KYRKA_KDF_KEY_PURPOSE_TRAFFIC_RX;
 	}
 
 	if (kyrka_traffic_kdf(ctx, &kex, okm, sizeof(okm)) == -1) {

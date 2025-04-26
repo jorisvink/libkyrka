@@ -27,8 +27,11 @@
 /* The KDF label for offer key derivation from shared secret. */
 #define KDF_KEY_OFFER_LABEL		"SANCTUM.KEY.OFFER.KDF"
 
-/* The KDF label for traffic key derivation from shared secret. */
-#define KDF_KEY_TRAFFIC_LABEL		"SANCTUM.KEY.TRAFFIC.KDF"
+/* The KDF label for traffic key derivation from shared secret (RX). */
+#define KDF_KEY_TRAFFIC_RX_LABEL	"SANCTUM.KEY.TRAFFIC.RX.KDF"
+
+/* The KDF label for traffic key derivation from shared secret (TX). */
+#define KDF_KEY_TRAFFIC_TX_LABEL	"SANCTUM.KEY.TRAFFIC.TX.KDF"
 
 /* The KDF label when deriving traffic keys. */
 #define KDF_TRAFFIC_LABEL		"SANCTUM.TRAFFIC.KDF"
@@ -57,7 +60,8 @@ kyrka_offer_kdf(const u_int8_t *secret, size_t secret_len,
 	nyfe_zeroize_register(&kdf, sizeof(kdf));
 
 	len = 64;
-	kdf_derive_key(secret, secret_len, 1, key, sizeof(key));
+	kdf_derive_key(secret, secret_len,
+	    KYRKA_KDF_KEY_PURPOSE_OFFER, key, sizeof(key));
 
 	nyfe_kmac256_init(&kdf, key, sizeof(key), label, strlen(label));
 	nyfe_kmac256_update(&kdf, &len, sizeof(len));
@@ -102,8 +106,8 @@ kyrka_traffic_kdf(struct kyrka *ctx, struct kyrka_kex *kx,
 	nyfe_zeroize_register(&kdf, sizeof(kdf));
 	nyfe_zeroize_register(secret, sizeof(secret));
 
-	kdf_derive_key(ctx->cfg.secret,
-	    sizeof(ctx->cfg.secret), 0, secret, sizeof(secret));
+	kdf_derive_key(ctx->cfg.secret, sizeof(ctx->cfg.secret),
+	    kx->purpose, secret, sizeof(secret));
 
 	nyfe_kmac256_init(&kdf, secret, sizeof(secret),
 	    KDF_TRAFFIC_LABEL, strlen(KDF_TRAFFIC_LABEL));
@@ -137,7 +141,7 @@ kyrka_traffic_kdf(struct kyrka *ctx, struct kyrka_kex *kx,
  * Derive a key for a given purpose from our shared secret.
  */
 static void
-kdf_derive_key(const u_int8_t *secret, size_t secret_len, int is_offer,
+kdf_derive_key(const u_int8_t *secret, size_t secret_len, int purpose,
     void *out, size_t out_len)
 {
 	struct nyfe_kmac256	kdf;
@@ -147,11 +151,23 @@ kdf_derive_key(const u_int8_t *secret, size_t secret_len, int is_offer,
 	PRECOND(secret_len == KYRKA_KEY_LENGTH);
 	PRECOND(out != NULL);
 	PRECOND(out_len == KYRKA_KEY_LENGTH);
+	PRECOND(purpose == KYRKA_KDF_KEY_PURPOSE_OFFER ||
+	    purpose == KYRKA_KDF_KEY_PURPOSE_TRAFFIC_RX ||
+	    purpose == KYRKA_KDF_KEY_PURPOSE_TRAFFIC_TX);
 
-	if (is_offer)
+	switch (purpose) {
+	case KYRKA_KDF_KEY_PURPOSE_OFFER:
 		label = KDF_KEY_OFFER_LABEL;
-	else
-		label = KDF_KEY_TRAFFIC_LABEL;
+		break;
+	case KYRKA_KDF_KEY_PURPOSE_TRAFFIC_RX:
+		label = KDF_KEY_TRAFFIC_RX_LABEL;
+		break;
+	case KYRKA_KDF_KEY_PURPOSE_TRAFFIC_TX:
+		label = KDF_KEY_TRAFFIC_TX_LABEL;
+		break;
+	default:
+		abort();
+	}
 
 	nyfe_zeroize_register(&kdf, sizeof(kdf));
 
