@@ -478,7 +478,7 @@ key_exchange_decapsulate(struct kyrka *ctx, struct kyrka_offer *op)
 	PRECOND(ctx != NULL);
 	PRECOND(op != NULL);
 
-	if (ctx->offer.local.spi == 0)
+	if (ctx->offer.local.spi == 0 || ctx->offer.remote.spi == 0)
 		return;
 
 	xchg = &op->data.offer.exchange;
