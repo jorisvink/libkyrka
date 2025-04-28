@@ -288,6 +288,8 @@ cathedral_send_offer(struct kyrka *ctx, u_int64_t magic)
 		liturgy->id = ctx->cfg.spi;
 		liturgy->group = htobe16(ctx->cathedral.group);
 		liturgy->hidden = ctx->cathedral.hidden;
+		if (ctx->cathedral.remembrance)
+			liturgy->flags = KYRKA_INFO_FLAG_REMEMBRANCE;
 	}
 
 	nyfe_zeroize_register(&okm, sizeof(okm));
