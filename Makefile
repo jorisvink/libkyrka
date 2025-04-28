@@ -108,7 +108,7 @@ $(LIBNYFE):
 	$(MAKE) -C nyfe
 
 $(LIBMLKEM1024): $(LIBNYFE)
-	$(MAKE) -C mlkem1024 tests
+	$(MAKE) -C mlkem1024
 
 src/kyrka.c: $(VERSION)
 
