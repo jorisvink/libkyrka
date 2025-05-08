@@ -148,12 +148,22 @@ kyrka_cathedral_nat_detection(struct kyrka *ctx)
  * Generates a LITURGY message for the configured cathedral and
  * gives the packet to the cathedral callback allowing the caller
  * to send it to the cathedral by whatever means.
+ *
+ * The given peers argument is either NULL to be interested in all
+ * peers, or an array of 256 bytes indicating which peers one is
+ * interested in.
  */
 int
-kyrka_cathedral_liturgy(struct kyrka *ctx)
+kyrka_cathedral_liturgy(struct kyrka *ctx, u_int8_t *peers, size_t len)
 {
 	if (ctx == NULL)
 		return (-1);
+
+	if ((peers == NULL && len != 0) ||
+	    (peers != NULL && len != sizeof(ctx->cathedral.peers))) {
+		ctx->last_error = KYRKA_ERROR_PARAMETER;
+		return (-1);
+	}
 
 	if (!(ctx->flags & KYRKA_FLAG_CATHEDRAL_CONFIG)) {
 		ctx->last_error = KYRKA_ERROR_NO_CONFIG;
@@ -163,6 +173,15 @@ kyrka_cathedral_liturgy(struct kyrka *ctx)
 	if (!(ctx->flags & KYRKA_FLAG_CATHEDRAL_SECRET)) {
 		ctx->last_error = KYRKA_ERROR_NO_SECRET;
 		return (-1);
+	}
+
+	if (peers != NULL) {
+		nyfe_memcpy(ctx->cathedral.peers,
+		    peers, sizeof(ctx->cathedral.peers));
+		ctx->cathedral.liturgy_flags = KYRKA_LITURGY_FLAG_SIGNALING;
+	} else {
+		ctx->cathedral.liturgy_flags = 0;
+		memset(ctx->cathedral.peers, 1, sizeof(ctx->cathedral.peers));
 	}
 
 	return (cathedral_send_offer(ctx, KYRKA_CATHEDRAL_LITURGY_MAGIC));
@@ -289,7 +308,10 @@ cathedral_send_offer(struct kyrka *ctx, u_int64_t magic)
 		liturgy->group = htobe16(ctx->cathedral.group);
 		liturgy->hidden = ctx->cathedral.hidden;
 		if (ctx->cathedral.remembrance)
-			liturgy->flags = KYRKA_INFO_FLAG_REMEMBRANCE;
+			liturgy->flags = KYRKA_LITURGY_FLAG_REMEMBRANCE;
+		liturgy->flags |= ctx->cathedral.liturgy_flags;
+		nyfe_memcpy(liturgy->peers,
+		    ctx->cathedral.peers, sizeof(liturgy->peers));
 	}
 
 	nyfe_zeroize_register(&okm, sizeof(okm));

@@ -161,8 +161,8 @@ int	kyrka_purgatory_ifc(KYRKA *,
 int	kyrka_purgatory_input(KYRKA *, const void *, size_t);
 
 int	kyrka_cathedral_notify(KYRKA *);
-int	kyrka_cathedral_liturgy(KYRKA *);
 int	kyrka_cathedral_nat_detection(KYRKA *);
+int	kyrka_cathedral_liturgy(KYRKA *, u_int8_t *, size_t);
 int	kyrka_cathedral_config(KYRKA *, struct kyrka_cathedral_cfg *);
 
 #if defined(__cplusplus)

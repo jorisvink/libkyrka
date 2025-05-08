@@ -367,6 +367,9 @@ struct kyrka_info_offer {
 	u_int64_t		instance;
 } __attribute__((packed));
 
+#define KYRKA_LITURGY_FLAG_REMEMBRANCE	KYRKA_INFO_FLAG_REMEMBRANCE
+#define KYRKA_LITURGY_FLAG_SIGNALING	(1 << 1)
+
 struct kyrka_liturgy_offer {
 	u_int8_t		id;
 	u_int16_t		group;
@@ -524,7 +527,9 @@ struct kyrka {
 		u_int16_t		group;
 		int			hidden;
 		int			remembrance;
+		u_int32_t		liturgy_flags;
 		u_int8_t		secret[KYRKA_KEY_LENGTH];
+		u_int8_t		peers[KYRKA_PEERS_PER_FLOCK];
 	} cathedral;
 };
 
