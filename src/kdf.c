@@ -36,19 +36,21 @@
 /* The KDF label when deriving traffic keys. */
 #define KDF_TRAFFIC_LABEL		"SANCTUM.TRAFFIC.KDF"
 
-static void	kdf_derive_key(const u_int8_t *, size_t, int, void *, size_t);
+static void	kdf_derive_key(const u_int8_t *,
+		    size_t, int, void *, size_t, u_int64_t);
 
 /*
  * Derive a symmetrical key from the given secret and the given seed + label
  * for the purpose of encrypting offerings.
  */
 void
-kyrka_offer_kdf(const u_int8_t *secret, size_t secret_len,
+kyrka_offer_kdf(struct kyrka *ctx, const u_int8_t *secret, size_t secret_len,
     const char *label, struct kyrka_key *okm, void *seed, size_t seed_len)
 {
 	struct nyfe_kmac256	kdf;
 	u_int8_t		len, key[KYRKA_KEY_LENGTH];
 
+	PRECOND(ctx != NULL);
 	PRECOND(secret != NULL);
 	PRECOND(secret_len == KYRKA_KEY_LENGTH);
 	PRECOND(label != NULL);
@@ -61,7 +63,8 @@ kyrka_offer_kdf(const u_int8_t *secret, size_t secret_len,
 
 	len = 64;
 	kdf_derive_key(secret, secret_len,
-	    KYRKA_KDF_KEY_PURPOSE_OFFER, key, sizeof(key));
+	    KYRKA_KDF_KEY_PURPOSE_OFFER, key, sizeof(key),
+	    ctx->cathedral.flock);
 
 	nyfe_kmac256_init(&kdf, key, sizeof(key), label, strlen(label));
 	nyfe_kmac256_update(&kdf, &len, sizeof(len));
@@ -107,7 +110,7 @@ kyrka_traffic_kdf(struct kyrka *ctx, struct kyrka_kex *kx,
 	nyfe_zeroize_register(secret, sizeof(secret));
 
 	kdf_derive_key(ctx->cfg.secret, sizeof(ctx->cfg.secret),
-	    kx->purpose, secret, sizeof(secret));
+	    kx->purpose, secret, sizeof(secret), ctx->cathedral.flock);
 
 	nyfe_kmac256_init(&kdf, secret, sizeof(secret),
 	    KDF_TRAFFIC_LABEL, strlen(KDF_TRAFFIC_LABEL));
@@ -138,13 +141,22 @@ kyrka_traffic_kdf(struct kyrka *ctx, struct kyrka_kex *kx,
 }
 
 /*
- * Derive a key for a given purpose from our shared secret.
+ * Derive a new key from the given shared secret for the intented purpose.
+ *
+ * Essentially doing this:
+ *	shared_secret = load_from_file()
+ *	K = KMAC256(shared_secret, label_for_purpose, flock), 256-bit
+ *
+ * The flock is the configured cathedral flock-id if a cathedral is in use
+ * (or we are the cathedral), otherwise it is 0. This is done to separate
+ * base key derivation between different flock domains.
  */
 static void
 kdf_derive_key(const u_int8_t *secret, size_t secret_len, int purpose,
-    void *out, size_t out_len)
+    void *out, size_t out_len, u_int64_t flock)
 {
 	struct nyfe_kmac256	kdf;
+	u_int8_t		flen;
 	const char		*label;
 
 	PRECOND(secret != NULL);
@@ -169,9 +181,13 @@ kdf_derive_key(const u_int8_t *secret, size_t secret_len, int purpose,
 		abort();
 	}
 
-	nyfe_zeroize_register(&kdf, sizeof(kdf));
+	flen = sizeof(flock);
+	flock = htobe64(flock);
 
+	nyfe_zeroize_register(&kdf, sizeof(kdf));
 	nyfe_kmac256_init(&kdf, secret, secret_len, label, strlen(label));
+	nyfe_kmac256_update(&kdf, &flen, sizeof(flen));
+	nyfe_kmac256_update(&kdf, &flock, sizeof(flock));
 	nyfe_kmac256_final(&kdf, out, out_len);
 
 	nyfe_zeroize(&kdf, sizeof(kdf));

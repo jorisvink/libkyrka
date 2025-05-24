@@ -569,7 +569,7 @@ int	kyrka_cathedral_decrypt(struct kyrka *, const void *, size_t);
 /* src/kdf.c */
 int	kyrka_traffic_kdf(struct kyrka *, struct kyrka_kex *,
 	    u_int8_t *, size_t);
-void	kyrka_offer_kdf(const u_int8_t *, size_t, const char *,
+void	kyrka_offer_kdf(struct kyrka *, const u_int8_t *, size_t, const char *,
 	    struct kyrka_key *, void *, size_t);
 
 /* src/key.c */

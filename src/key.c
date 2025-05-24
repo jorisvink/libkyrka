@@ -105,7 +105,7 @@ kyrka_key_offer_decrypt(struct kyrka *ctx, const void *data, size_t len)
 	nyfe_zeroize_register(&offer, sizeof(offer));
 
 	nyfe_memcpy(&offer, data, sizeof(offer));
-	kyrka_offer_kdf(ctx->cfg.secret, sizeof(ctx->cfg.secret),
+	kyrka_offer_kdf(ctx, ctx->cfg.secret, sizeof(ctx->cfg.secret),
 	    OFFER_DERIVE_LABEL, &okm, offer.hdr.seed, sizeof(offer.hdr.seed));
 
 	if (kyrka_offer_decrypt(&okm, &offer, 10) == -1)
@@ -318,7 +318,7 @@ key_offer_send_fragment(struct kyrka *ctx, int which, u_int8_t frag)
 		op->hdr.flock = htobe64(ctx->cathedral.flock);
 
 	nyfe_zeroize_register(&okm, sizeof(okm));
-	kyrka_offer_kdf(ctx->cfg.secret, sizeof(ctx->cfg.secret),
+	kyrka_offer_kdf(ctx, ctx->cfg.secret, sizeof(ctx->cfg.secret),
 	    OFFER_DERIVE_LABEL, &okm, op->hdr.seed, sizeof(op->hdr.seed));
 
 	exchange = &op->data.offer.exchange;
