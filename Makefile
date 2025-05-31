@@ -108,6 +108,7 @@ install:
 	mkdir -p $(DESTDIR)$(INCLUDE_DIR)
 	install -m 555 $(LIB) $(DESTDIR)$(LIB_DIR)/$(BIN)
 	install -m 644 include/libkyrka/* $(DESTDIR)$(INCLUDE_DIR)
+	install -m 644 nyfe/include/portable_win.h $(DESTDIR)$(INCLUDE_DIR)
 
 $(LIBNYFE):
 	$(MAKE) -C nyfe
