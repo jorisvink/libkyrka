@@ -17,9 +17,14 @@ ifeq ("$(SANITIZE)", "1")
 	LDFLAGS+=-fsanitize=address,undefined
 endif
 
+ifeq ("$(OSNAME)", "")
 OSNAME=$(shell uname -s | sed -e 's/[-_].*//g' | tr A-Z a-z)
+endif
+
 ifeq ("$(OSNAME)", "linux")
 	CFLAGS+=-D_GNU_SOURCE=1 -U_FORTIFY_SOURCE -D_FORTIFY_SOURCE=2
+else ifeq ("$(OSNAME)", "windows")
+	CFLAGS+=-DNYFE_PLATFORM_WINDOWS
 endif
 
 SRC=	src/agelas.c \
@@ -50,6 +55,8 @@ sync:
 	@for src in $(SRC); do \
 		cp $(NYFE)/$${src} src; \
 	done
+	@cp $(NYFE)/include/nyfe.h include
+	@cp $(NYFE)/include/queue.h include
 	@cp $(NYFE)/include/libnyfe.h include
 	@echo -n "nyfe synced from $(NYFE) "
 	@echo "$(shell cd $(NYFE) && git rev-parse --short=8 HEAD)"

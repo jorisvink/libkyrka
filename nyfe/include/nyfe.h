@@ -22,6 +22,10 @@
 #include <stdlib.h>
 #include <string.h>
 
+#if defined(NYFE_PLATFORM_WINDOWS)
+#include "portable_win.h"
+#endif
+
 #include "libnyfe.h"
 
 /* Apple .. */
@@ -50,13 +54,6 @@
 		}							\
 	} while (0)
 
-/* Constants for certain primitives. */
-#define NYFE_KEY_ID_LEN		16
-#define NYFE_TAG_LEN		32
-#define NYFE_SEED_LEN		64
-#define NYFE_KEY_LEN		64
-#define NYFE_OKM_LEN		NYFE_KEY_LEN
-
 /*
  * A key loaded from a keyfile.
  */
@@ -76,13 +73,14 @@ void	nyfe_output(const char *, ...) __attribute__((format (printf, 1, 2)));
 const char	*nyfe_entropy_path(void);
 
 /* src/crypto.c */
-void	nyfe_crypto_decrypt(const char *, const char *, const char *);
-void	nyfe_crypto_encrypt(const char *, const char *, const char *);
+void	nyfe_crypto_decrypt(const char *, const char *, const char *, int);
+void	nyfe_crypto_encrypt(const char *, const char *, const char *, int);
 
 /* src/keys.c */
 void	nyfe_key_clone(const char *, const char *);
-void	nyfe_key_load(struct nyfe_key *, const char *);
+void	nyfe_key_from_passphrase(struct nyfe_key *);
 void	nyfe_key_generate(const char *, struct nyfe_key *);
+void	nyfe_key_load(struct nyfe_key *, const char *, int);
 
 /* src/selftests.c */
 void	nyfe_selftest_kmac256(void);
