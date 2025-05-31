@@ -17,13 +17,16 @@
 #ifndef __H_LIBKYRKA_INTERNAL_H
 #define __H_LIBKYRKA_INTERNAL_H
 
-#include <sys/queue.h>
+#include "queue.h"
 
 #if defined(__ANDROID__)
 #include <sys/endian.h>
 #endif
 
 #include <stdlib.h>
+
+#include "libkyrka.h"
+#include "libnyfe.h"
 
 /* Portability for apple devices. */
 #if defined(__APPLE__)
@@ -532,9 +535,6 @@ struct kyrka {
 		u_int8_t		peers[KYRKA_PEERS_PER_FLOCK];
 	} cathedral;
 };
-
-#include "libkyrka.h"
-#include "libnyfe.h"
 
 /* The build date and revision. */
 extern const char	*kyrka_build_rev;

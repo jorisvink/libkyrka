@@ -21,6 +21,10 @@
 extern "C" {
 #endif
 
+#if defined(PLATFORM_WINDOWS)
+#include "portable_win.h"
+#endif
+
 /* The magic for cathedral messages (KATEDRAL). */
 #define KYRKA_CATHEDRAL_MAGIC		0x4b4154454452414c
 
