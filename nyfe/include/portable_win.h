@@ -52,7 +52,7 @@
  * do not have to modify the open() code in nyfe_file_open() with
  * ugle defines.
  */
-#define O_NOFOLLOW	0
+#define O_NOFOLLOW	O_BINARY
 
 /*
  * I like using BSD-style typedefs which windows does not carry, so
