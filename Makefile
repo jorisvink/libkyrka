@@ -128,14 +128,14 @@ $(OBJDIR)/%.o: src/%.c
 	$(CC) $(CFLAGS) -c $< -o $@
 
 dist:
+	./dist-build/host-build.sh
 	./dist-build/android-build.sh
 	./dist-build/windows-build.sh
-	$(MAKE)
 
 dist-clean:
+	./dist-build/host-clean.sh
 	./dist-build/android-clean.sh
 	./dist-build/windows-clean.sh
-	$(MAKE) clean
 
 clean:
 	$(MAKE) -C nyfe clean

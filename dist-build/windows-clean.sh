@@ -6,6 +6,7 @@
 # Note that the toolchain must have libsodium available somewhere.
 
 DESTDIR=x86_64-w64-mingw32.static-gcc \
+    PREFIX= \
     OBJDIR=obj-windows \
     CC=x86_64-w64-mingw32.static-gcc \
     OSNAME=windows \
