@@ -127,6 +127,11 @@ $(OBJDIR):
 $(OBJDIR)/%.o: src/%.c
 	$(CC) $(CFLAGS) -c $< -o $@
 
+dist:
+	./dist-build/android-build.sh
+	./dist-build/windows-build.sh
+	$(MAKE)
+
 dist-clean:
 	./dist-build/android-clean.sh
 	./dist-build/windows-clean.sh
