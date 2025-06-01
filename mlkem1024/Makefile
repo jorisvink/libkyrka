@@ -41,7 +41,6 @@ SRC=	src/cbd.c \
 OBJS=	$(SRC:src/%.c=$(OBJDIR)/%.o)
 
 $(LIB): $(OBJDIR) $(OBJS)
-	$(AR) rcs $(LIB) $(OBJS)
 
 $(OBJDIR):
 	@mkdir -p $(OBJDIR)

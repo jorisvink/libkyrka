@@ -39,7 +39,6 @@ SRC=	src/agelas.c \
 OBJS=	$(SRC:src/%.c=$(OBJDIR)/%.o)
 
 $(LIB): $(OBJDIR) $(OBJS)
-	$(AR) rcs $(LIB) $(OBJS)
 
 $(OBJDIR):
 	@mkdir -p $(OBJDIR)
@@ -62,6 +61,6 @@ sync:
 	@echo "$(shell cd $(NYFE) && git rev-parse --short=8 HEAD)"
 
 clean:
-	rm -rf $(OBJDIR) $(LIB)
+	rm -rf $(OBJDIR)
 
 .PHONY: all clean force

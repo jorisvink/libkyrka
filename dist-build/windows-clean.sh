@@ -5,4 +5,10 @@
 #
 # Note that the toolchain must have libsodium available somewhere.
 
-CC=x86_64-w64-mingw32.static-gcc OSNAME=windows make
+DESTDIR=x86_64-w64-mingw32.static-gcc \
+    OBJDIR=obj-windows \
+    CC=x86_64-w64-mingw32.static-gcc \
+    OSNAME=windows \
+    make clean
+
+rm -rf x86_64-w64-mingw32.static-gcc

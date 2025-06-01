@@ -62,24 +62,24 @@ endif
 OBJS=	$(SRC:src/%.c=$(OBJDIR)/%.o)
 OBJS+=	$(OBJDIR)/version.o
 
-LIBNYFE_OBJS=		nyfe/obj/sha3.o \
-			nyfe/obj/kmac256.o \
-			nyfe/obj/keccak1600.o \
-			nyfe/obj/agelas.o \
-			nyfe/obj/mem.o \
-			nyfe/obj/random.o \
-			nyfe/obj/file.o
+LIBNYFE_OBJS=		nyfe/$(OBJDIR)/sha3.o \
+			nyfe/$(OBJDIR)/kmac256.o \
+			nyfe/$(OBJDIR)/keccak1600.o \
+			nyfe/$(OBJDIR)/agelas.o \
+			nyfe/$(OBJDIR)/mem.o \
+			nyfe/$(OBJDIR)/random.o \
+			nyfe/$(OBJDIR)/file.o
 
-LIBMLKEM1024_OBJS=	mlkem1024/obj/cbd.o \
-			mlkem1024/obj/fips202.o \
-			mlkem1024/obj/indcpa.o \
-			mlkem1024/obj/kem.o \
-			mlkem1024/obj/ntt.o \
-			mlkem1024/obj/poly.o \
-			mlkem1024/obj/polyvec.o \
-			mlkem1024/obj/reduce.o \
-			mlkem1024/obj/symmetric-shake.o \
-			mlkem1024/obj/verify.o
+LIBMLKEM1024_OBJS=	mlkem1024/$(OBJDIR)/cbd.o \
+			mlkem1024/$(OBJDIR)/fips202.o \
+			mlkem1024/$(OBJDIR)/indcpa.o \
+			mlkem1024/$(OBJDIR)/kem.o \
+			mlkem1024/$(OBJDIR)/ntt.o \
+			mlkem1024/$(OBJDIR)/poly.o \
+			mlkem1024/$(OBJDIR)/polyvec.o \
+			mlkem1024/$(OBJDIR)/reduce.o \
+			mlkem1024/$(OBJDIR)/symmetric-shake.o \
+			mlkem1024/$(OBJDIR)/verify.o
 
 all: $(LIB)
 
@@ -103,12 +103,15 @@ $(VERSION): $(OBJDIR) force
 	@printf "const char *kyrka_build_date = \"%s\";\n" \
 	    `date +"%Y-%m-%d"` >> $(VERSION);
 
-install:
+install: $(LIB)
 	mkdir -p $(DESTDIR)$(LIB_DIR)
 	mkdir -p $(DESTDIR)$(INCLUDE_DIR)
 	install -m 555 $(LIB) $(DESTDIR)$(LIB_DIR)/$(BIN)
 	install -m 644 include/libkyrka/* $(DESTDIR)$(INCLUDE_DIR)
 	install -m 644 nyfe/include/portable_win.h $(DESTDIR)$(INCLUDE_DIR)
+	@if [ ! -z "$(CROSS_BUILD)" ]; then \
+		rm -f $(LIB); \
+	fi
 
 $(LIBNYFE):
 	$(MAKE) -C nyfe
@@ -123,6 +126,11 @@ $(OBJDIR):
 
 $(OBJDIR)/%.o: src/%.c
 	$(CC) $(CFLAGS) -c $< -o $@
+
+dist-clean:
+	./dist-build/android-clean.sh
+	./dist-build/windows-clean.sh
+	$(MAKE) clean
 
 clean:
 	$(MAKE) -C nyfe clean
