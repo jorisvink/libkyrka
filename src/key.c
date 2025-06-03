@@ -297,6 +297,7 @@ key_offer_send_fragment(struct kyrka *ctx, int which, u_int8_t frag)
 	struct kyrka_packet		pkt;
 	struct kyrka_key		okm;
 	struct kyrka_offer		*op;
+	u_int8_t			*ptr;
 	struct kyrka_xchg_info		*info;
 	size_t				offset;
 	struct kyrka_exchange_offer	*exchange;
@@ -347,7 +348,9 @@ key_offer_send_fragment(struct kyrka *ctx, int which, u_int8_t frag)
 	}
 
 	nyfe_zeroize(&okm, sizeof(okm));
-	ctx->purgatory.send(op, sizeof(*op), 0, ctx->purgatory.udata);
+
+	ptr = kyrka_packet_tx_finalize(ctx, &pkt);
+	ctx->purgatory.send(ptr, pkt.length, 0, ctx->purgatory.udata);
 
 	return (0);
 }

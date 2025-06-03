@@ -139,7 +139,9 @@ kyrka_heaven_input(struct kyrka *ctx, const void *data, size_t len)
 
 	pkt.length += sizeof(*hdr) + KYRKA_TAG_LENGTH;
 
-	ctx->purgatory.send(hdr, pkt.length,
+	ptr = kyrka_packet_tx_finalize(ctx, &pkt);
+
+	ctx->purgatory.send(ptr, pkt.length,
 	    ctx->tx.seqnr - 1, ctx->purgatory.udata);
 
 	return (0);

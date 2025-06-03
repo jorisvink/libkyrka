@@ -49,10 +49,10 @@ kyrka_ctx_alloc(void (*event)(struct kyrka *, union kyrka_event *, void *),
 {
 	struct kyrka		*ctx;
 
-	if ((ctx = calloc(1, sizeof(*ctx))) == NULL)
+	if (kyrka_cipher_init() == -1)
 		return (NULL);
 
-	if (kyrka_cipher_init() == -1)
+	if ((ctx = calloc(1, sizeof(*ctx))) == NULL)
 		return (NULL);
 
 	ctx->offer.default_ttl = 15;
@@ -138,6 +138,28 @@ kyrka_device_kek_load(KYRKA *ctx, const void *secret, size_t len)
 	nyfe_memcpy(ctx->cfg.kek, secret, len);
 
 	ctx->flags |= KYRKA_FLAG_DEVICE_KEK;
+
+	return (0);
+}
+
+/*
+ * Sets the encapsulation key (TEK) by copying it into our context.
+ */
+int
+kyrka_encap_key_load(KYRKA *ctx, const void *key, size_t len)
+{
+	if (ctx == NULL)
+		return (-1);
+
+	if (key == NULL || len != sizeof(ctx->encap.tek)) {
+		ctx->last_error = KYRKA_ERROR_PARAMETER;
+		return (-1);
+	}
+
+	nyfe_memcpy(ctx->encap.tek, key, len);
+
+	ctx->flags |= KYRKA_FLAG_ENCAPSULATION;
+	kyrka_packet_encapsulation_reset(ctx);
 
 	return (0);
 }

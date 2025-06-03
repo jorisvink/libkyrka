@@ -21,6 +21,14 @@
 #include "libkyrka-int.h"
 
 /*
+ * After how many packets do we rollover the pn and spi when
+ * we are applying encapsulation.
+ *
+ * Doing this just makes it look like we negotiated.
+ */
+#define PACKET_ENCAP_PKT_MAX		(1 << 20)
+
+/*
  * Returns a pointer to the start of the entire packet buffer.
  */
 void *
@@ -79,4 +87,76 @@ kyrka_packet_crypto_checklen(struct kyrka_packet *pkt)
 		return (-1);
 
 	return (0);
+}
+
+/*
+ * Finalize a packet for sending, encapsulating it if required.
+ * Returns a pointer to the data that should be sent onto the wire.
+ * Adjusts pkt->length if required.
+ */
+void *
+kyrka_packet_tx_finalize(struct kyrka *ctx, struct kyrka_packet *pkt)
+{
+	struct nyfe_kmac256		kdf;
+	struct kyrka_encap_hdr		*hdr;
+	size_t				idx, total;
+	u_int8_t			*data, mask[KYRKA_ENCAP_MASK_LEN];
+
+	PRECOND(ctx != NULL);
+	PRECOND(pkt != NULL);
+
+	if (!(ctx->flags & KYRKA_FLAG_ENCAPSULATION))
+		return (kyrka_packet_head(pkt));
+
+	total = sizeof(*hdr) + pkt->length;
+	VERIFY(total > pkt->length && total < KYRKA_PACKET_MAX_LEN);
+
+	hdr = kyrka_packet_start(pkt);
+	data = kyrka_packet_head(pkt);
+
+	hdr->ipsec.pn = ctx->encap.pn++;
+	hdr->ipsec.esp.spi = htobe32(ctx->encap.spi);
+	hdr->ipsec.esp.seq = htobe32(hdr->ipsec.pn & 0xffffffff);
+	hdr->ipsec.pn = htobe64(hdr->ipsec.pn);
+
+	nyfe_random_bytes(hdr->seed, sizeof(hdr->seed));
+	nyfe_kmac256_init(&kdf, ctx->encap.tek, sizeof(ctx->encap.tek),
+	    KYRKA_ENCAP_LABEL, sizeof(KYRKA_ENCAP_LABEL) - 1);
+	nyfe_kmac256_update(&kdf, hdr, sizeof(*hdr));
+	nyfe_kmac256_final(&kdf, mask, sizeof(mask));
+
+	/*
+	 * We do not check pkt length here before applying the XOR mask
+	 * as the buffer will always have enough space to do this.
+	 */
+	for (idx = 0; idx < sizeof(mask); idx++)
+		data[idx] ^= mask[idx];
+
+	pkt->length += sizeof(*hdr);
+
+	if (ctx->encap.pn >= PACKET_ENCAP_PKT_MAX)
+		kyrka_packet_encapsulation_reset(ctx);
+
+	return (hdr);
+}
+
+/*
+ * Resets the pn and generates a new random spi for packet encapsulation.
+ */
+void
+kyrka_packet_encapsulation_reset(struct kyrka *ctx)
+{
+	union kyrka_event	evt;
+
+	PRECOND(ctx != NULL);
+	PRECOND(ctx->flags & KYRKA_FLAG_ENCAPSULATION);
+
+	ctx->encap.pn = 1;
+	nyfe_random_bytes(&ctx->encap.spi, sizeof(ctx->encap.spi));
+
+	if (ctx->event != NULL) {
+		evt.type = KYRKA_EVENT_ENCAP_INFO;
+		evt.encap.spi = ctx->encap.spi;
+		ctx->event(ctx, &evt, ctx->udata);
+	}
 }

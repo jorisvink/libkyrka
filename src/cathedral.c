@@ -262,9 +262,9 @@ cathedral_send_offer(struct kyrka *ctx, u_int64_t magic)
 	struct kyrka_packet		pkt;
 	struct kyrka_offer		*op;
 	struct kyrka_key		okm;
-	u_int8_t			type;
 	struct kyrka_info_offer		*info;
 	struct kyrka_liturgy_offer	*liturgy;
+	u_int8_t			type, *ptr;
 
 	PRECOND(ctx != NULL);
 	PRECOND(ctx->flags & KYRKA_FLAG_CATHEDRAL_CONFIG);
@@ -329,8 +329,9 @@ cathedral_send_offer(struct kyrka *ctx, u_int64_t magic)
 
 	nyfe_zeroize(&okm, sizeof(okm));
 
-	ctx->cathedral.ifc.send(op,
-	    sizeof(*op), magic, ctx->cathedral.ifc.udata);
+	ptr = kyrka_packet_tx_finalize(ctx, &pkt);
+	ctx->cathedral.ifc.send(ptr,
+	    pkt.length, magic, ctx->cathedral.ifc.udata);
 
 	return (0);
 }

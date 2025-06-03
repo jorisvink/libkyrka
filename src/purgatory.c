@@ -22,6 +22,8 @@
 
 #include "libkyrka-int.h"
 
+static int	purgatory_decapsulate(struct kyrka *,
+		    struct kyrka_packet *);
 static int	purgatory_arwin_check(struct kyrka_sa *,
 		    const struct kyrka_ipsec_hdr *);
 static void	purgatory_arwin_update(struct kyrka_sa *,
@@ -60,6 +62,9 @@ kyrka_purgatory_ifc(struct kyrka *ctx,
  * If a packet was successfully verified and decrypted and the
  * packet was not a cathedral message, we call the heaven
  * "virtual interface" with the plaintext data.
+ *
+ * We might have to decapsulate the packet first if encapsulation
+ * was enabled on the context.
  */
 int
 kyrka_purgatory_input(struct kyrka *ctx, const void *data, size_t len)
@@ -84,11 +89,19 @@ kyrka_purgatory_input(struct kyrka *ctx, const void *data, size_t len)
 	if (len < sizeof(*hdr) + sizeof(*tail) + KYRKA_TAG_LENGTH)
 		return (0);
 
-	ctlen = len - sizeof(*hdr) - KYRKA_TAG_LENGTH;
-
 	pkt.length = len;
-	ptr = kyrka_packet_head(&pkt);
+
+	if (ctx->flags & KYRKA_FLAG_ENCAPSULATION)
+		ptr = kyrka_packet_start(&pkt);
+	else
+		ptr = kyrka_packet_head(&pkt);
+
 	memcpy(ptr, data, len);
+
+	if (ctx->flags & KYRKA_FLAG_ENCAPSULATION) {
+		if (purgatory_decapsulate(ctx, &pkt) == -1)
+			return (-1);
+	}
 
 	hdr = kyrka_packet_head(&pkt);
 	spi = be32toh(hdr->esp.spi);
@@ -100,13 +113,13 @@ kyrka_purgatory_input(struct kyrka *ctx, const void *data, size_t len)
 
 	if ((spi == (KYRKA_KEY_OFFER_MAGIC >> 32)) &&
 	    (seq == (KYRKA_KEY_OFFER_MAGIC & 0xffffffff))) {
-		kyrka_key_offer_decrypt(ctx, data, len);
+		kyrka_key_offer_decrypt(ctx, hdr, pkt.length);
 		return (0);
 	}
 
 	if ((spi == (KYRKA_CATHEDRAL_MAGIC >> 32)) &&
 	    (seq == (KYRKA_CATHEDRAL_MAGIC & 0xffffffff)))
-		return (kyrka_cathedral_decrypt(ctx, data, len));
+		return (kyrka_cathedral_decrypt(ctx, hdr, pkt.length));
 
 	if (ctx->heaven.send == NULL) {
 		ctx->last_error = KYRKA_ERROR_NO_CALLBACK;
@@ -141,6 +154,8 @@ kyrka_purgatory_input(struct kyrka *ctx, const void *data, size_t len)
 
 	cipher.nonce = nonce;
 	cipher.nonce_len = sizeof(nonce);
+
+	ctlen = pkt.length - sizeof(*hdr) - KYRKA_TAG_LENGTH;
 
 	ptr = kyrka_packet_data(&pkt);
 	cipher.ct = ptr;
@@ -230,4 +245,43 @@ purgatory_arwin_update(struct kyrka_sa *sa, const struct kyrka_ipsec_hdr *hdr)
 
 	bit = (KYRKA_ARWIN_SIZE - 1) - (sa->seqnr - pn);
 	sa->bitmap |= ((u_int64_t)1 << bit);
+}
+
+/*
+ * Decapsulate a packet by unmasking it using a derived mask from
+ * our encapsulation key (TEK).
+ */
+static int
+purgatory_decapsulate(struct kyrka *ctx, struct kyrka_packet *pkt)
+{
+	size_t				idx;
+	struct nyfe_kmac256		kdf;
+	struct kyrka_encap_hdr		*hdr;
+	u_int8_t			*data, mask[KYRKA_ENCAP_MASK_LEN];
+
+	PRECOND(ctx != NULL);
+	PRECOND(pkt != NULL);
+	PRECOND(ctx->flags & KYRKA_FLAG_ENCAPSULATION);
+
+	if (pkt->length < sizeof(*hdr))
+		return (-1);
+
+	hdr = kyrka_packet_start(pkt);
+	data = kyrka_packet_head(pkt);
+
+	nyfe_kmac256_init(&kdf, ctx->encap.tek, sizeof(ctx->encap.tek),
+	    KYRKA_ENCAP_LABEL, sizeof(KYRKA_ENCAP_LABEL) - 1);
+	nyfe_kmac256_update(&kdf, hdr, sizeof(*hdr));
+	nyfe_kmac256_final(&kdf, mask, sizeof(mask));
+
+	/*
+	 * We do not check pkt length here before applying the XOR mask
+	 * as the buffer will always have enough space to do this.
+	 */
+	for (idx = 0; idx < sizeof(mask); idx++)
+		data[idx] ^= mask[idx];
+
+	pkt->length -= sizeof(*hdr);
+
+	return (0);
 }

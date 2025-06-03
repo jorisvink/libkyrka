@@ -455,6 +455,9 @@ struct kyrka_kex {
 /* If a device KEK was loaded into the context. */
 #define KYRKA_FLAG_DEVICE_KEK		(1 << 3)
 
+/* If encapsulation is active. */
+#define KYRKA_FLAG_ENCAPSULATION	(1 << 4)
+
 /* XXX */
 union kyrka_event;
 
@@ -520,6 +523,13 @@ struct kyrka {
 		u_int8_t		kek[KYRKA_KEY_LENGTH];
 		u_int8_t		secret[KYRKA_KEY_LENGTH];
 	} cfg;
+
+	/* Encapsulation. */
+	struct {
+		u_int64_t		pn;
+		u_int32_t		spi;
+		u_int8_t		tek[KYRKA_KEY_LENGTH];
+	} encap;
 
 	/* Cathedral config. */
 	struct {
@@ -589,7 +599,9 @@ void	*kyrka_packet_start(struct kyrka_packet *);
 void	*kyrka_packet_head(struct kyrka_packet *);
 void	*kyrka_packet_data(struct kyrka_packet *);
 void	*kyrka_packet_tail(struct kyrka_packet *);
+void	kyrka_packet_encapsulation_reset(struct kyrka *);
 int	kyrka_packet_crypto_checklen(struct kyrka_packet *);
+void	*kyrka_packet_tx_finalize(struct kyrka *, struct kyrka_packet *);
 
 void	kyrka_offer_nonce(u_int8_t *, size_t);
 void	kyrka_offer_tfc(struct kyrka_packet *);
