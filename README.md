@@ -41,8 +41,15 @@ if ((ctx = kyrka_ctx_alloc(NULL)) == NULL)
 Load a shared secret, or configure a cathedral.
 
 ```c
-if (kyrka_secret_load(ctx, "/tmp/super.secret") == -1)
+u_int8_t secret[32] = { ... };
+
+if (kyrka_secret_load(ctx, secret, sizeof(secret)) == -1)
 	errx(1, "kyrka_secret_load: %d", kyrka_last_error(ctx));
+
+/* or */
+
+if (kyrka_secret_load_path(ctx, "/tmp/secret") == -1)
+	errx(1, "kyrka_secret_load_path: %d", kyrka_last_error(ctx));
 ```
 
 ```c
@@ -60,6 +67,11 @@ cathedral_send_packet(const void *data, size_t len, u_int64_t msg, void *udata)
 
 struct kyrka_cathedral_cfg	cfg;
 
+/*
+ * Note that you can set kek and secret to NULL and load them explicitly
+ * via kyrka_cathedral_secret_load() or kyrka_device_kek_load() if you
+ * wish to load them from memory.
+ */
 cfg.udata = NULL;
 cfg.tunnel = 0x0102;
 cfg.identity = 0xbadf00d;
@@ -92,7 +104,7 @@ void
 purgatory_send_packet(const void *data, size_t len, u_int64_t seq, void *udata)
 {
 	/*
-	 * Ciphertgext data is ready to be sent, somewhere. Up to you where
+	 * Ciphertext data is ready to be sent, somewhere. Up to you where
 	 * or what that means.
 	 *
 	 * The packet is sequence number is given in seq.
