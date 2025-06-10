@@ -77,7 +77,7 @@ kyrka_ctx_alloc(void (*event)(struct kyrka *, union kyrka_event *, void *),
  * Load a shared secret inside of the given path into our context.
  */
 int
-kyrka_secret_load(KYRKA *ctx, const char *path)
+kyrka_secret_load_path(KYRKA *ctx, const char *path)
 {
 	if (ctx == NULL)
 		return (-1);
@@ -90,6 +90,27 @@ kyrka_secret_load(KYRKA *ctx, const char *path)
 	if (kyrka_key_load_from_path(ctx, path,
 	    ctx->cfg.secret, sizeof(ctx->cfg.secret)) == -1)
 		return (-1);
+
+	ctx->flags |= KYRKA_FLAG_SECRET_SET;
+
+	return (0);
+}
+
+/*
+ * Set the shared secret directly by copying in the given secret.
+ */
+int
+kyrka_secret_load(KYRKA *ctx, const void *secret, size_t len)
+{
+	if (ctx == NULL)
+		return (-1);
+
+	if (secret == NULL || len != KYRKA_KEY_LENGTH) {
+		ctx->last_error = KYRKA_ERROR_PARAMETER;
+		return (-1);
+	}
+
+	nyfe_memcpy(ctx->cfg.secret, secret, len);
 
 	ctx->flags |= KYRKA_FLAG_SECRET_SET;
 

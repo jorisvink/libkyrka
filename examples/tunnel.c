@@ -188,8 +188,8 @@ tunnel_setup(void)
 	if (kyrka_purgatory_ifc(tun->ctx, tunnel_ciphertext, tun) == -1)
 		fatal("kyrka_purgatory_ifc: %d", kyrka_last_error(tun->ctx));
 
-	if (kyrka_secret_load(tun->ctx, "secret.key") == -1)
-		fatal("kyrka_secret_load: %d", kyrka_last_error(tun->ctx));
+	if (kyrka_secret_load_path(tun->ctx, "secret.key") == -1)
+		fatal("kyrka_secret_load_path: %d", kyrka_last_error(tun->ctx));
 
 	if (kyrka_encap_key_load(tun->ctx, tek, sizeof(tek)) == -1)
 		fatal("kyrka_encap_key_load: %d", kyrka_last_error(tun->ctx));

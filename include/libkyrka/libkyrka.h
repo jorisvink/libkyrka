@@ -159,7 +159,8 @@ KYRKA	*kyrka_ctx_alloc(void (*event)(KYRKA *, union kyrka_event *, void *),
 	    void *);
 
 int	kyrka_key_manage(KYRKA *);
-int	kyrka_secret_load(KYRKA *, const char *);
+int	kyrka_secret_load_path(KYRKA *, const char *);
+int	kyrka_secret_load(KYRKA *, const void *, size_t);
 int	kyrka_encap_key_load(KYRKA *, const void *, size_t);
 int	kyrka_device_kek_load(KYRKA *, const void *, size_t);
 int	kyrka_cathedral_secret_load(KYRKA *, const void *, size_t);
