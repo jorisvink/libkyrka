@@ -43,6 +43,5 @@ kyrka_random_bytes(void *buf, size_t len)
 	PRECOND(buf != NULL);
 	PRECOND(len > 0);
 
-	printf("beep?\n");
 	nyfe_random_bytes(buf, len);
 }
