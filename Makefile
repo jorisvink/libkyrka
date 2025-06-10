@@ -3,8 +3,8 @@
 CC?=cc
 OBJDIR?=obj
 LIB=libkyrka.a
+TOPDIR=$(CURDIR)
 LIBNYFE=nyfe/libnyfe.a
-LIBMLKEM1024=mlkem1024/libmlkem1024.a
 VERSION=$(OBJDIR)/version.c
 
 DESTDIR?=
@@ -12,7 +12,15 @@ PREFIX?=/usr/local
 LIB_DIR=$(PREFIX)/lib
 INCLUDE_DIR=$(PREFIX)/include/libkyrka
 
-CIPHER?=openssl-aes-gcm
+RANDOM?=nyfe
+KEM?=mlkem1024-ref
+CIPHER?=libsodium-aes-gcm
+ASYMMETRY?=libsodium-x25519
+
+KEM_MK_PATH?=$(TOPDIR)/mk/kem/$(KEM).mk
+RANDOM_MK_PATH?=$(TOPDIR)/mk/random/$(RANDOM).mk
+CIPHER_MK_PATH?=$(TOPDIR)/mk/ciphers/$(CIPHER).mk
+ASYMMETRY_MK_PATH?=$(TOPDIR)/mk/asymmetry/$(ASYMMETRY).mk
 
 CFLAGS+=-std=c99 -pedantic -Wall -Werror -Wstrict-prototypes
 CFLAGS+=-Wmissing-prototypes -Wmissing-declarations -Wshadow
@@ -26,9 +34,7 @@ SRC=	src/kyrka.c \
 	src/kdf.c \
 	src/key.c \
 	src/heaven.c \
-	src/mlkem1024.c \
 	src/offer.c \
-	src/libsodium_aes_gcm.c \
 	src/packet.c \
 	src/purgatory.c
 
@@ -52,15 +58,12 @@ else ifeq ("$(OSNAME)", "windows")
 	CFLAGS+=-DPLATFORM_WINDOWS -DNYFE_PLATFORM_WINDOWS
 endif
 
-ifeq ("$(LIBSODIUM_PATH)", "")
-	CFLAGS+=$(shell pkg-config libsodium --cflags)
-else
-	CFLAGS+=-I$(LIBSODIUM_PATH)/include
-endif
+all: $(LIB)
 
-
-OBJS=	$(SRC:src/%.c=$(OBJDIR)/%.o)
-OBJS+=	$(OBJDIR)/version.o
+include $(KEM_MK_PATH)
+include $(CIPHER_MK_PATH)
+include $(RANDOM_MK_PATH)
+include $(ASYMMETRY_MK_PATH)
 
 LIBNYFE_OBJS=		nyfe/$(OBJDIR)/sha3.o \
 			nyfe/$(OBJDIR)/kmac256.o \
@@ -70,21 +73,11 @@ LIBNYFE_OBJS=		nyfe/$(OBJDIR)/sha3.o \
 			nyfe/$(OBJDIR)/random.o \
 			nyfe/$(OBJDIR)/file.o
 
-LIBMLKEM1024_OBJS=	mlkem1024/$(OBJDIR)/cbd.o \
-			mlkem1024/$(OBJDIR)/fips202.o \
-			mlkem1024/$(OBJDIR)/indcpa.o \
-			mlkem1024/$(OBJDIR)/kem.o \
-			mlkem1024/$(OBJDIR)/ntt.o \
-			mlkem1024/$(OBJDIR)/poly.o \
-			mlkem1024/$(OBJDIR)/polyvec.o \
-			mlkem1024/$(OBJDIR)/reduce.o \
-			mlkem1024/$(OBJDIR)/symmetric-shake.o \
-			mlkem1024/$(OBJDIR)/verify.o
+OBJS=	$(SRC:%.c=$(OBJDIR)/%.o)
+OBJS+=	$(OBJDIR)/version.o
 
-all: $(LIB)
-
-$(LIB): $(OBJDIR) $(LIBNYFE) $(LIBMLKEM1024) $(OBJS) $(VERSION)
-	$(AR) rcs $(LIB) $(OBJS) $(LIBNYFE_OBJS) $(LIBMLKEM1024_OBJS)
+$(LIB): $(OBJDIR) $(LIBNYFE) $(KEMLIB) $(OBJS) $(VERSION)
+	$(AR) rcs $(LIB) $(OBJS) $(LIBNYFE_OBJS) $(KEMLIB_OBJS)
 
 $(VERSION): $(OBJDIR) force
 	@if [ -f RELEASE ]; then \
@@ -116,15 +109,13 @@ install: $(LIB)
 $(LIBNYFE):
 	$(MAKE) -C nyfe
 
-$(LIBMLKEM1024): $(LIBNYFE)
-	$(MAKE) -C mlkem1024
-
 src/kyrka.c: $(VERSION)
 
 $(OBJDIR):
 	@mkdir -p $(OBJDIR)
 
-$(OBJDIR)/%.o: src/%.c
+$(OBJDIR)/%.o: %.c
+	@mkdir -p $(shell dirname $@)
 	$(CC) $(CFLAGS) -c $< -o $@
 
 dist:

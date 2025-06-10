@@ -90,7 +90,7 @@ kyrka_traffic_kdf(struct kyrka *ctx, struct kyrka_kex *kx,
 {
 	struct nyfe_kmac256	kdf;
 	u_int8_t		len;
-	u_int8_t		ikm[KYRKA_KEY_LENGTH];
+	u_int8_t		ecdh[KYRKA_KEY_LENGTH];
 	u_int8_t		secret[KYRKA_KEY_LENGTH];
 
 	PRECOND(ctx != NULL);
@@ -98,11 +98,10 @@ kyrka_traffic_kdf(struct kyrka *ctx, struct kyrka_kex *kx,
 	PRECOND(okm != NULL);
 	PRECOND(okm_len == KYRKA_KEY_LENGTH);
 
-	nyfe_zeroize_register(ikm, sizeof(ikm));
+	nyfe_zeroize_register(ecdh, sizeof(ecdh));
 
-	if (crypto_scalarmult_curve25519(ikm, kx->private, kx->remote) == -1) {
-		nyfe_zeroize(ikm, sizeof(ikm));
-		ctx->last_error = KYRKA_ERROR_INTERNAL;
+	if (kyrka_asymmetry_derive(kx, ecdh, sizeof(ecdh)) == -1) {
+		nyfe_zeroize(ecdh, sizeof(ecdh));
 		return (-1);
 	}
 
@@ -115,9 +114,9 @@ kyrka_traffic_kdf(struct kyrka *ctx, struct kyrka_kex *kx,
 	nyfe_kmac256_init(&kdf, secret, sizeof(secret),
 	    KDF_TRAFFIC_LABEL, strlen(KDF_TRAFFIC_LABEL));
 
-	len = sizeof(ikm);
+	len = sizeof(ecdh);
 	nyfe_kmac256_update(&kdf, &len, sizeof(len));
-	nyfe_kmac256_update(&kdf, ikm, sizeof(ikm));
+	nyfe_kmac256_update(&kdf, ecdh, sizeof(ecdh));
 
 	len = sizeof(kx->kem);
 	nyfe_kmac256_update(&kdf, &len, sizeof(len));
@@ -133,8 +132,8 @@ kyrka_traffic_kdf(struct kyrka *ctx, struct kyrka_kex *kx,
 
 	nyfe_kmac256_final(&kdf, okm, okm_len);
 
-	nyfe_zeroize(ikm, sizeof(ikm));
 	nyfe_zeroize(&kdf, sizeof(kdf));
+	nyfe_zeroize(ecdh, sizeof(ecdh));
 	nyfe_zeroize(secret, sizeof(secret));
 
 	return (0);

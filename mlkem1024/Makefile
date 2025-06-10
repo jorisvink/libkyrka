@@ -24,7 +24,7 @@ endif
 ifeq ("$(OSNAME)", "linux")
 	CFLAGS+=-D_GNU_SOURCE=1 -U_FORTIFY_SOURCE -D_FORTIFY_SOURCE=2
 else ifeq ("$(OSNAME)", "windows")
-	CFLAGS+=-DNYFE_PLATFORM_WINDOWS
+	CFLAGS+=-DPLATFORM_WINDOWS
 endif
 
 SRC=	src/cbd.c \

@@ -215,9 +215,9 @@ key_offer_create(struct kyrka *ctx, u_int64_t now)
 	PRECOND(ctx != NULL);
 	PRECOND(ctx->offer.local.spi == 0);
 
-	nyfe_random_bytes(&ctx->offer.local.spi,
+	kyrka_random_bytes(&ctx->offer.local.spi,
 	    sizeof(ctx->offer.local.spi));
-	nyfe_random_bytes(&ctx->offer.local.salt,
+	kyrka_random_bytes(&ctx->offer.local.salt,
 	    sizeof(ctx->offer.local.salt));
 
 	if (ctx->cfg.spi != 0) {
@@ -225,25 +225,23 @@ key_offer_create(struct kyrka *ctx, u_int64_t now)
 		    ((u_int32_t)ctx->cfg.spi << 16);
 	}
 
-	nyfe_random_bytes(ctx->offer.local.private,
-	    sizeof(ctx->offer.local.private));
-
-	nyfe_random_bytes(ctx->offer.remote.private,
-	    sizeof(ctx->offer.remote.private));
-
-	if (crypto_scalarmult_curve25519_base(ctx->offer.local.public,
-	    ctx->offer.local.private) == -1) {
-		ctx->last_error = KYRKA_ERROR_INTERNAL;
-		return (-1);
-	}
-
-	if (crypto_scalarmult_curve25519_base(ctx->offer.remote.public,
-	    ctx->offer.remote.private) == -1) {
-		ctx->last_error = KYRKA_ERROR_INTERNAL;
-		return (-1);
-	}
-
 	kyrka_mlkem1024_keypair(&ctx->offer.local.kem);
+
+	if (kyrka_asymmetry_keygen(ctx->offer.local.private,
+	    sizeof(ctx->offer.local.private), ctx->offer.local.public,
+	    sizeof(ctx->offer.local.public)) == -1) {
+		nyfe_mem_zero(&ctx->offer, sizeof(ctx->offer));
+		ctx->last_error = KYRKA_ERROR_INTERNAL;
+		return (-1);
+	}
+
+	if (kyrka_asymmetry_keygen(ctx->offer.remote.private,
+	    sizeof(ctx->offer.remote.private), ctx->offer.remote.public,
+	    sizeof(ctx->offer.remote.public)) == -1) {
+		nyfe_mem_zero(&ctx->offer, sizeof(ctx->offer));
+		ctx->last_error = KYRKA_ERROR_INTERNAL;
+		return (-1);
+	}
 
 	ctx->offer.pulse = now;
 	ctx->offer.ttl = ctx->offer.default_ttl;

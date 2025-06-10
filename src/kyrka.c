@@ -60,12 +60,13 @@ kyrka_ctx_alloc(void (*event)(struct kyrka *, union kyrka_event *, void *),
 
 	nyfe_zeroize_register(ctx, sizeof(*ctx));
 
-	nyfe_random_init();
-	nyfe_random_bytes(&ctx->local_id, sizeof(ctx->local_id));
+	kyrka_random_init();
+	kyrka_random_bytes(&ctx->local_id, sizeof(ctx->local_id));
 
-	nyfe_random_bytes(ctx->cfg.kek, sizeof(ctx->cfg.kek));
-	nyfe_random_bytes(ctx->cfg.secret, sizeof(ctx->cfg.secret));
-	nyfe_random_bytes(ctx->cathedral.secret, sizeof(ctx->cathedral.secret));
+	kyrka_random_bytes(ctx->cfg.kek, sizeof(ctx->cfg.kek));
+	kyrka_random_bytes(ctx->cfg.secret, sizeof(ctx->cfg.secret));
+	kyrka_random_bytes(ctx->cathedral.secret,
+	    sizeof(ctx->cathedral.secret));
 
 	ctx->udata = udata;
 	ctx->event = event;

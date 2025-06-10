@@ -119,7 +119,7 @@ kyrka_packet_tx_finalize(struct kyrka *ctx, struct kyrka_packet *pkt)
 	hdr->ipsec.esp.seq = htobe32(hdr->ipsec.pn & 0xffffffff);
 	hdr->ipsec.pn = htobe64(hdr->ipsec.pn);
 
-	nyfe_random_bytes(hdr->seed, sizeof(hdr->seed));
+	kyrka_random_bytes(hdr->seed, sizeof(hdr->seed));
 	nyfe_kmac256_init(&kdf, ctx->encap.tek, sizeof(ctx->encap.tek),
 	    KYRKA_ENCAP_LABEL, sizeof(KYRKA_ENCAP_LABEL) - 1);
 	nyfe_kmac256_update(&kdf, hdr, sizeof(*hdr));
@@ -152,7 +152,7 @@ kyrka_packet_encapsulation_reset(struct kyrka *ctx)
 	PRECOND(ctx->flags & KYRKA_FLAG_ENCAPSULATION);
 
 	ctx->encap.pn = 1;
-	nyfe_random_bytes(&ctx->encap.spi, sizeof(ctx->encap.spi));
+	kyrka_random_bytes(&ctx->encap.spi, sizeof(ctx->encap.spi));
 
 	if (ctx->event != NULL) {
 		evt.type = KYRKA_EVENT_ENCAP_INFO;

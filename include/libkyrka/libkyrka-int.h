@@ -432,7 +432,7 @@ struct kyrka_mlkem1024 {
 };
 
 /*
- * Data structure used when calling sanctum_traffic_kdf().
+ * Data structure used when calling kyrka_traffic_kdf().
  */
 struct kyrka_kex {
 	int			purpose;
@@ -562,6 +562,14 @@ void	kyrka_mlkem1024_selftest(void);
 void	kyrka_mlkem1024_keypair(struct kyrka_mlkem1024 *);
 void	kyrka_mlkem1024_encapsulate(struct kyrka_mlkem1024 *);
 void	kyrka_mlkem1024_decapsulate(struct kyrka_mlkem1024 *);
+
+/* The asymmetry API. */
+int	kyrka_asymmetry_keygen(u_int8_t *, size_t, u_int8_t *, size_t);
+int	kyrka_asymmetry_derive(struct kyrka_kex *, u_int8_t *, size_t);
+
+/* The random API. */
+void	kyrka_random_init(void);
+void	kyrka_random_bytes(void *, size_t);
 
 /* The mlkem1024 backend api. */
 int	pqcrystals_kyber1024_ref_keypair(u_int8_t *, u_int8_t *);
