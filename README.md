@@ -15,7 +15,7 @@ for discovery and relay or key distribution).
 
 # Building
 
-You will need libsodium as its used for the traffic encryption.
+You will need libsodium as it is used for the traffic encryption.
 
 ```
 $ make
