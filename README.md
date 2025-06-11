@@ -113,10 +113,10 @@ purgatory_send_packet(const void *data, size_t len, u_int64_t seq, void *udata)
 
 ...
 
-if (kyrka_heaven_ifc(state.tunnel, heaven_send_packet, NULL) == -1)
+if (kyrka_heaven_ifc(ctx, heaven_send_packet, NULL) == -1)
 	errx(1, "kyrka_heaven_ifc: %d", kyrka_last_error(ctx));
 
-if (kyrka_purgatory_ifc(state.tunnel, purgatory_send_packet, NULL) == -1)
+if (kyrka_purgatory_ifc(ctx, purgatory_send_packet, NULL) == -1)
 	errx(1, "kyrka_purgatory_ifc: %d", kyrka_last_error(ctx));
 ```
 
