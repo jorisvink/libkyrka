@@ -23,7 +23,7 @@ OBJS=	$(SRC:%.c=$(OBJDIR)/%.o)
 LDFLAGS+=	$(LIBKYRKA)/lib/libkyrka.a $(LIB) -lsodium
 
 # XXX library build should be done with sanitizers.
-LDFLAGS+=	-fsanitize=address,undefined
+LDFLAGS+=	-fsanitize=address,undefined -fprofile-arcs
 
 all: $(TESTS)
 
@@ -40,8 +40,18 @@ $(OBJDIR)/%.o: %.c
 	@mkdir -p $(shell dirname $@)
 	$(CC) $(CFLAGS) -c $< -o $@
 
+coverage: coverage_html
+
+coverage_html: coverage.info
+	genhtml -o coverage_html coverage.info
+
+coverage.info: $(TESTS)
+	$(OBJDIR)/test-api
+	lcov -d ../obj-host -c -o coverage.info
+
 clean:
 	rm -rf $(LIB)
 	rm -rf $(OBJDIR)
+	rm -rf coverage*
 
 .PHONY: all clean

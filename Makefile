@@ -40,7 +40,10 @@ SRC=	src/kyrka.c \
 
 ifeq ("$(SANITIZE)", "1")
 	CFLAGS+=-fsanitize=address,undefined
-	LDFLAGS+=-fsanitize=address,undefined
+endif
+
+ifeq ("$(COVERAGE)", "1")
+	CFLAGS+=-fprofile-arcs -ftest-coverage
 endif
 
 ifeq ("$(OSNAME)", "")
