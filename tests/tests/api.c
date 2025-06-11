@@ -17,6 +17,7 @@
 #include <sys/types.h>
 
 #include <errno.h>
+#include <limits.h>
 #include <stdio.h>
 #include <string.h>
 
@@ -35,6 +36,11 @@ api_populate_secret_key(struct kyrka *ctx, void *ptr, size_t len)
 
 	ret = kyrka_key_load_from_path(ctx, "test-data/secret.key", ptr, len);
 	VERIFY(ret == 0);
+}
+
+static void
+api_generic_callback(const void *data, size_t len, u_int64_t seq, void *udata)
+{
 }
 
 static void
@@ -223,6 +229,111 @@ api_kyrka_encap_key_load(void)
 	VERIFY(ret == 0);
 }
 
+static void
+api_kyrka_heaven_ifc(void)
+{
+	int			ret;
+	struct kyrka		*ctx;
+	u_int8_t		*ptr;
+
+	ptr = NULL;
+
+	ctx = kyrka_ctx_alloc(NULL, NULL);
+	VERIFY(ctx != NULL);
+
+	ret = kyrka_heaven_ifc(NULL, NULL, NULL);
+	VERIFY(ret == -1);
+	VERIFY(ctx->heaven.send == NULL);
+	VERIFY(ctx->heaven.udata == NULL);
+
+	ret = kyrka_heaven_ifc(ctx, NULL, NULL);
+	VERIFY(ret == -1);
+	VERIFY(kyrka_last_error(ctx) == KYRKA_ERROR_PARAMETER);
+	VERIFY(ctx->heaven.send == NULL);
+	VERIFY(ctx->heaven.udata == NULL);
+
+	ret = kyrka_heaven_ifc(ctx, api_generic_callback, NULL);
+	VERIFY(ret == 0);
+	VERIFY(ctx->heaven.send == api_generic_callback);
+	VERIFY(ctx->heaven.udata == NULL);
+
+	ret = kyrka_heaven_ifc(ctx, api_generic_callback, ptr);
+	VERIFY(ret == 0);
+	VERIFY(ctx->heaven.send == api_generic_callback);
+	VERIFY(ctx->heaven.udata == ptr);
+}
+
+static void
+api_kyrka_purgatory_ifc(void)
+{
+	int			ret;
+	struct kyrka		*ctx;
+	u_int8_t		*ptr;
+
+	ptr = NULL;
+
+	ctx = kyrka_ctx_alloc(NULL, NULL);
+	VERIFY(ctx != NULL);
+
+	ret = kyrka_purgatory_ifc(NULL, NULL, NULL);
+	VERIFY(ret == -1);
+	VERIFY(ctx->purgatory.send == NULL);
+	VERIFY(ctx->purgatory.udata == NULL);
+
+	ret = kyrka_purgatory_ifc(ctx, NULL, NULL);
+	VERIFY(ret == -1);
+	VERIFY(kyrka_last_error(ctx) == KYRKA_ERROR_PARAMETER);
+	VERIFY(ctx->purgatory.send == NULL);
+	VERIFY(ctx->purgatory.udata == NULL);
+
+	ret = kyrka_purgatory_ifc(ctx, api_generic_callback, NULL);
+	VERIFY(ret == 0);
+	VERIFY(ctx->purgatory.send == api_generic_callback);
+	VERIFY(ctx->purgatory.udata == NULL);
+
+	ret = kyrka_purgatory_ifc(ctx, api_generic_callback, ptr);
+	VERIFY(ret == 0);
+	VERIFY(ctx->purgatory.send == api_generic_callback);
+	VERIFY(ctx->purgatory.udata == ptr);
+}
+
+static void
+api_kyrka_heaven_input(void)
+{
+	int			ret;
+	struct kyrka		*ctx;
+	u_int8_t		data[256];
+
+	ctx = kyrka_ctx_alloc(NULL, NULL);
+	VERIFY(ctx != NULL);
+
+	ret = kyrka_heaven_input(NULL, NULL, 0);
+	VERIFY(ret == -1);
+
+	ret = kyrka_heaven_input(ctx, NULL, 0);
+	VERIFY(ret == -1);
+	VERIFY(kyrka_last_error(ctx) == KYRKA_ERROR_PARAMETER);
+
+	ret = kyrka_heaven_input(ctx, data, 0);
+	VERIFY(ret == -1);
+	VERIFY(kyrka_last_error(ctx) == KYRKA_ERROR_PARAMETER);
+
+	ret = kyrka_heaven_input(ctx, data, UINT_MAX);
+	VERIFY(ret == -1);
+	VERIFY(kyrka_last_error(ctx) == KYRKA_ERROR_PARAMETER);
+
+	ret = kyrka_heaven_input(ctx, data, sizeof(data));
+	VERIFY(ret == -1);
+	VERIFY(kyrka_last_error(ctx) == KYRKA_ERROR_NO_CALLBACK);
+
+	ret = kyrka_purgatory_ifc(ctx, api_generic_callback, NULL);
+	VERIFY(ret == 0);
+
+	ret = kyrka_heaven_input(ctx, data, sizeof(data));
+	VERIFY(ret == -1);
+	VERIFY(kyrka_last_error(ctx) == KYRKA_ERROR_NO_TX_KEY);
+}
+
 void
 test_entry(void)
 {
@@ -240,6 +351,11 @@ test_entry(void)
 
 	test_framework_register("kyrka_encap_key_load",
 	    api_kyrka_encap_key_load);
+
+	test_framework_register("kyrka_heaven_ifc", api_kyrka_heaven_ifc);
+	test_framework_register("kyrka_heaven_input", api_kyrka_heaven_input);
+
+	test_framework_register("kyrka_purgatory_ifc", api_kyrka_purgatory_ifc);
 
 	test_framework_run();
 }
