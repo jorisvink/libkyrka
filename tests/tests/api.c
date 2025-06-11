@@ -326,12 +326,45 @@ api_kyrka_heaven_input(void)
 	VERIFY(ret == -1);
 	VERIFY(kyrka_last_error(ctx) == KYRKA_ERROR_NO_CALLBACK);
 
+	/* This is correct, we need purgatory cb for heaven input to work. */
 	ret = kyrka_purgatory_ifc(ctx, api_generic_callback, NULL);
 	VERIFY(ret == 0);
 
 	ret = kyrka_heaven_input(ctx, data, sizeof(data));
 	VERIFY(ret == -1);
 	VERIFY(kyrka_last_error(ctx) == KYRKA_ERROR_NO_TX_KEY);
+}
+
+static void
+api_kyrka_purgatory_input(void)
+{
+	int			ret;
+	struct kyrka		*ctx;
+	u_int8_t		data[256];
+
+	ctx = kyrka_ctx_alloc(NULL, NULL);
+	VERIFY(ctx != NULL);
+
+	ret = kyrka_purgatory_input(NULL, NULL, 0);
+	VERIFY(ret == -1);
+
+	ret = kyrka_purgatory_input(ctx, NULL, 0);
+	VERIFY(ret == -1);
+	VERIFY(kyrka_last_error(ctx) == KYRKA_ERROR_PARAMETER);
+
+	ret = kyrka_purgatory_input(ctx, data, 0);
+	VERIFY(ret == -1);
+	VERIFY(kyrka_last_error(ctx) == KYRKA_ERROR_PARAMETER);
+
+	ret = kyrka_purgatory_input(ctx, data, UINT_MAX);
+	VERIFY(ret == -1);
+	VERIFY(kyrka_last_error(ctx) == KYRKA_ERROR_PARAMETER);
+
+	/*
+	 * We cannot test as much as for heaven as purgatory input
+	 * immediately requires data to be in the right format and
+	 * we are only testing the API here.
+	 */
 }
 
 void
@@ -355,7 +388,10 @@ test_entry(void)
 	test_framework_register("kyrka_heaven_ifc", api_kyrka_heaven_ifc);
 	test_framework_register("kyrka_heaven_input", api_kyrka_heaven_input);
 
-	test_framework_register("kyrka_purgatory_ifc", api_kyrka_purgatory_ifc);
+	test_framework_register("kyrka_purgatory_ifc",
+	    api_kyrka_purgatory_ifc);
+	test_framework_register("kyrka_purgatory_input",
+	    api_kyrka_purgatory_input);
 
 	test_framework_run();
 }
