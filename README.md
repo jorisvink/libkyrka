@@ -4,8 +4,6 @@ libkyrka implements the <a href="https://sanctorum.se/sanctum">sanctum</a>
 protocol in library form allowing you to establish sanctum tunnels directly
 from your application without the need for the actual daemon.
 
-If you don't know what sanctum is, this isn't for you.
-
 Note that while the sanctum daemon is built upon proper privilege separation,
 the library will not provide this to you unless you do it yourself somehow.
 
