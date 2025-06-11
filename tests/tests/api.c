@@ -49,10 +49,6 @@ api_kyrka_ctx_alloc(void)
 	ctx = kyrka_ctx_alloc(event_callback, NULL);
 	VERIFY(ctx != NULL);
 	kyrka_ctx_free(ctx);
-
-	ctx = kyrka_ctx_alloc(event_callback, NULL);
-	VERIFY(ctx != NULL);
-	kyrka_ctx_free(ctx);
 }
 
 static void
