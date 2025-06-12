@@ -44,6 +44,28 @@ api_generic_callback(const void *data, size_t len, u_int64_t seq, void *udata)
 }
 
 static void
+internal_key_load(void)
+{
+	int			ret;
+	struct kyrka		*ctx;
+	u_int8_t		loaded[32];
+	u_int8_t		expected[32] = {
+		0xc1, 0x4f, 0xa8, 0x03, 0x23, 0x52, 0xa4, 0xba, 0x98, 0xe4,
+		0xfe, 0x07, 0xc0, 0x68, 0x22, 0xf1, 0xc7, 0x29, 0x7f, 0x33,
+		0x55, 0x3e, 0x5e, 0xa8, 0xc0, 0x9c, 0x4b, 0xfe, 0xbb, 0x7e,
+		0xd5, 0x02
+	};
+
+
+	ctx = kyrka_ctx_alloc(NULL, NULL);
+	VERIFY(ctx != NULL);
+
+	api_populate_secret_key(ctx, loaded, sizeof(loaded));
+	ret = memcmp(expected, loaded, sizeof(loaded));
+	VERIFY(ret == 0);
+}
+
+static void
 api_kyrka_ctx_alloc(void)
 {
 	struct kyrka		*ctx;
@@ -370,6 +392,8 @@ api_kyrka_purgatory_input(void)
 void
 test_entry(void)
 {
+	test_framework_register("test_internal_key_load", internal_key_load);
+
 	test_framework_register("kyrka_ctx_alloc", api_kyrka_ctx_alloc);
 
 	test_framework_register("kyrka_secret_load", api_kyrka_secret_load);
