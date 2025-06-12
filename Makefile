@@ -131,6 +131,11 @@ dist-clean:
 	./dist-build/android-clean.sh
 	./dist-build/windows-clean.sh
 
+tests-run:
+	env COVERAGE=1 SANITIZE=1 ./dist-build/host-build.sh
+	$(MAKE) -C tests
+	cd tests && ./obj/test-api
+
 clean:
 	$(MAKE) -C nyfe clean
 	$(MAKE) -C mlkem1024 clean
