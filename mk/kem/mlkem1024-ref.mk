@@ -14,7 +14,6 @@ KEMLIB_OBJS=	mlkem1024/$(OBJDIR)/cbd.o \
 		mlkem1024/$(OBJDIR)/verify.o
 
 KEMLIB=		mlkem1024/libmlkem1024.a
-LDFLAGS+=	$(KEMLIB)
 
 $(KEMLIB): $(LIBNYFE)
 	$(MAKE) -C mlkem1024

@@ -5,8 +5,10 @@
 ifeq ("$(LIBSODIUM)", "")
 	ifeq ("$(LIBSODIUM_PATH)", "")
 		CFLAGS+=$(shell pkg-config libsodium --cflags)
+		LDFLAGS+=$(shell pkg-config libsodium --libs)
 	else
 		CFLAGS+=-I$(LIBSODIUM_PATH)/include
+		LDFLAGS+=-L$(LIBSODIUM_PATH)/lib -lsodium
 	endif
 endif
 

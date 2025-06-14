@@ -6,6 +6,7 @@ LIB=libkyrka.a
 TOPDIR=$(CURDIR)
 LIBNYFE=nyfe/libnyfe.a
 VERSION=$(OBJDIR)/version.c
+SHARED_FLAGS=-shared
 
 DESTDIR?=
 PREFIX?=/usr/local
@@ -54,6 +55,7 @@ ifeq ("$(OSNAME)", "linux")
 	CFLAGS+=-DPLATFORM_LINUX
 	CFLAGS+=-D_GNU_SOURCE=1 -U_FORTIFY_SOURCE -D_FORTIFY_SOURCE=2
 else ifeq ("$(OSNAME)", "darwin")
+	SHARED_FLAGS=-dynamiclib -undefined dynamic_lookup -flat_namespace
 	CFLAGS+=-DPLATFORM_DARWIN
 else ifeq ("$(OSNAME)", "openbsd")
 	CFLAGS+=-DPLATFORM_OPENBSD
@@ -99,6 +101,12 @@ $(VERSION): $(OBJDIR) force
 	@printf "const char *kyrka_build_date = \"%s\";\n" \
 	    `date +"%Y-%m-%d"` >> $(VERSION);
 
+python-mod: $(OBJDIR)/python/libkyrka.so
+
+$(OBJDIR)/python/libkyrka.so: $(LIB) $(OBJDIR)/python.o
+	@mkdir -p $(OBJDIR)/python
+	$(CC) $(SHARED_FLAGS) $(OBJDIR)/python.o $(LIB) $(LDFLAGS) -o $@
+
 install: $(LIB)
 	mkdir -p $(DESTDIR)$(LIB_DIR)
 	mkdir -p $(DESTDIR)$(INCLUDE_DIR)
@@ -116,6 +124,10 @@ src/kyrka.c: $(VERSION)
 
 $(OBJDIR):
 	@mkdir -p $(OBJDIR)
+
+$(OBJDIR)/python.o: src/python.c
+	$(eval PYTHONFLAGS=$(shell pkg-config --cflags python3))
+	$(CC) $(PYTHONFLAGS) $(CFLAGS) -c $< -o $@
 
 $(OBJDIR)/%.o: %.c
 	@mkdir -p $(shell dirname $@)
