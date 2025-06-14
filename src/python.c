@@ -88,6 +88,8 @@ static PyObject		*pykyrka_purgatory_callback(PyObject *, PyObject *);
 
 static void		python_kyrka_exception(u_int64_t);
 static PyObject		*python_callback_set(PyObject *, struct callback *);
+static void		python_callback_run(struct pykyrka *,
+			    struct callback *, const void *, size_t, u_int64_t);
 
 static PyObject		*python_integer_lookup(struct integer *, u_int64_t);
 static void		python_integer_constants(PyObject *, struct integer *);
@@ -340,31 +342,14 @@ static void
 kyrka_cb_heaven(const void *data, size_t len, u_int64_t seq, void *udata)
 {
 	struct pykyrka		*ctx;
-	PyObject		*result, *bytes, *pyseq;
 
 	PRECOND(data != NULL);
 	PRECOND(len > 0);
 	PRECOND(udata != NULL);
 
-	ctx = udata;
+	ctx = (struct pykyrka *)udata;
 
-	if (ctx->heaven.cb == NULL)
-		return;
-
-	if ((bytes = PyBytes_FromStringAndSize(data, len)) == NULL)
-		return;
-
-	if ((pyseq = PyLong_FromUnsignedLongLong(seq)) == NULL) {
-		Py_DECREF(bytes);
-		return;
-	}
-
-	result = PyObject_CallFunctionObjArgs(ctx->heaven.cb,
-	    udata, bytes, pyseq, ctx->heaven.arg, NULL);
-
-	Py_DECREF(bytes);
-	Py_DECREF(pyseq);
-	Py_XDECREF(result);
+	python_callback_run(udata, &ctx->heaven, data, len, seq);
 }
 
 /*
@@ -375,31 +360,14 @@ static void
 kyrka_cb_purgatory(const void *data, size_t len, u_int64_t seq, void *udata)
 {
 	struct pykyrka		*ctx;
-	PyObject		*result, *bytes, *pyseq;
 
 	PRECOND(data != NULL);
 	PRECOND(len > 0);
 	PRECOND(udata != NULL);
 
-	ctx = udata;
+	ctx = (struct pykyrka *)udata;
 
-	if (ctx->purgatory.cb == NULL)
-		return;
-
-	if ((bytes = PyBytes_FromStringAndSize(data, len)) == NULL)
-		return;
-
-	if ((pyseq = PyLong_FromUnsignedLongLong(seq)) == NULL) {
-		Py_DECREF(bytes);
-		return;
-	}
-
-	result = PyObject_CallFunctionObjArgs(ctx->purgatory.cb,
-	    udata, bytes, pyseq, ctx->purgatory.arg, NULL);
-
-	Py_DECREF(bytes);
-	Py_DECREF(pyseq);
-	Py_XDECREF(result);
+	python_callback_run(udata, &ctx->purgatory, data, len, seq);
 }
 
 /*
@@ -410,31 +378,14 @@ static void
 kyrka_cb_cathedral(const void *data, size_t len, u_int64_t magic, void *udata)
 {
 	struct pykyrka		*ctx;
-	PyObject		*result, *bytes, *pymagic;
 
 	PRECOND(data != NULL);
 	PRECOND(len > 0);
 	PRECOND(udata != NULL);
 
-	ctx = udata;
+	ctx = (struct pykyrka *)udata;
 
-	if (ctx->cathedral.cb == NULL)
-		return;
-
-	if ((bytes = PyBytes_FromStringAndSize(data, len)) == NULL)
-		return;
-
-	if ((pymagic = PyLong_FromUnsignedLongLong(magic)) == NULL) {
-		Py_DECREF(bytes);
-		return;
-	}
-
-	result = PyObject_CallFunctionObjArgs(ctx->cathedral.cb,
-	    udata, bytes, pymagic, ctx->cathedral.arg, NULL);
-
-	Py_DECREF(bytes);
-	Py_DECREF(pymagic);
-	Py_XDECREF(result);
+	python_callback_run(udata, &ctx->cathedral, data, len, magic);
 }
 
 /*
@@ -906,6 +857,40 @@ python_callback_set(PyObject *args, struct callback *cb)
 	cb->arg = arg;
 
 	Py_RETURN_NONE;
+}
+
+/*
+ * Helper function to run the given callback passing the rest of
+ * the arguments to the python method.
+ */
+static void
+python_callback_run(struct pykyrka *ctx, struct callback *cb,
+    const void *data, size_t len, u_int64_t seqmag)
+{
+	PyObject	*result, *bytes, *obj;
+
+	PRECOND(ctx != NULL);
+	PRECOND(cb != NULL);
+	PRECOND(data != NULL);
+	PRECOND(len > 0);
+
+	if (cb->cb == NULL)
+		return;
+
+	if ((bytes = PyBytes_FromStringAndSize(data, len)) == NULL)
+		return;
+
+	if ((obj = PyLong_FromUnsignedLongLong(seqmag)) == NULL) {
+		Py_DECREF(bytes);
+		return;
+	}
+
+	result = PyObject_CallFunctionObjArgs(cb->cb,
+	    ctx, bytes, obj, cb->arg, NULL);
+
+	Py_DECREF(obj);
+	Py_DECREF(bytes);
+	Py_XDECREF(result);
 }
 
 /*
