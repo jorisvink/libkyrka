@@ -91,7 +91,7 @@ try:
         ctx.secret_load(f.read())
 except Exception as e:
     print(f"error loading secret.key: {e}")
-    quit()    
+    quit()
 
 sel = selectors.DefaultSelector()
 sel.register(fd, selectors.EVENT_READ, packet_recv)
