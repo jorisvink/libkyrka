@@ -22,7 +22,7 @@ You can select what cipher sanctum will use by specifying a CIPHER environment
 variable at compile time with one of the following:
 
 - libsodium-aes-gcm (AES256-GCM via libsodium) **[default]**
-- mbedtls-aes-gcm (AES256-GCM via mbedtls its mbedcrypto lib).
+- mbedtls-aes-gcm (AES256-GCM via mbedtls 3.x its mbedcrypto lib)
 
 # Usage
 
