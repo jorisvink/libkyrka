@@ -13,12 +13,16 @@ for discovery and relay or key distribution).
 
 # Building
 
-You will need libsodium as it is used for the traffic encryption.
-
 ```
 $ make
 # make install
 ```
+
+You can select what cipher sanctum will use by specifying a CIPHER environment
+variable at compile time with one of the following:
+
+- libsodium-aes-gcm (AES256-GCM via libsodium) **[default]**
+- mbedtls-aes-gcm (AES256-GCM via mbedtls its mbedcrypto lib).
 
 # Usage
 
