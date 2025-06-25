@@ -48,7 +48,8 @@ kyrka_offer_init(struct kyrka_packet *pkt, u_int32_t spi,
 	op->hdr.magic = htobe64(magic);
 
 	kyrka_random_bytes(op->hdr.seed, sizeof(op->hdr.seed));
-	kyrka_random_bytes(&op->hdr.flock, sizeof(op->hdr.flock));
+	kyrka_random_bytes(&op->hdr.flock_src, sizeof(op->hdr.flock_src));
+	kyrka_random_bytes(&op->hdr.flock_dst, sizeof(op->hdr.flock_dst));
 
 	(void)clock_gettime(CLOCK_REALTIME, &ts);
 	op->data.timestamp = htobe64((u_int64_t)ts.tv_sec);
@@ -118,8 +119,8 @@ kyrka_offer_tfc(struct kyrka_packet *pkt)
 	    (kyrka->flags & SANCTUM_FLAG_ENCAPSULATE)) {
 		offset = pkt->length;
 		pkt->length = kyrka->tun_mtu +
-		    sizeof(struct kyrka_ipsec_hdr) +
-		    sizeof(struct kyrka_ipsec_tail) +
+		    sizeof(struct kyrka_proto_hdr) +
+		    sizeof(struct kyrka_proto_tail) +
 		    kyrka_cipher_overhead();
 		data = kyrka_packet_head(pkt);
 		kyrka_random_bytes(&data[offset], pkt->length - offset);

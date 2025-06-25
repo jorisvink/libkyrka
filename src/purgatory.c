@@ -25,9 +25,9 @@
 static int	purgatory_decapsulate(struct kyrka *,
 		    struct kyrka_packet *);
 static int	purgatory_arwin_check(struct kyrka_sa *,
-		    const struct kyrka_ipsec_hdr *);
+		    const struct kyrka_proto_hdr *);
 static void	purgatory_arwin_update(struct kyrka_sa *,
-		    const struct kyrka_ipsec_hdr *);
+		    const struct kyrka_proto_hdr *);
 
 /*
  * Sets the "virtual interface" for the purgatory side to the provided callback.
@@ -71,12 +71,13 @@ kyrka_purgatory_input(struct kyrka *ctx, const void *data, size_t len)
 {
 	u_int64_t			pn;
 	struct kyrka_packet		pkt;
-	struct kyrka_ipsec_hdr		*hdr;
-	struct kyrka_ipsec_tail		*tail;
+	struct kyrka_proto_tail		*tail;
 	size_t				ctlen;
 	struct kyrka_cipher		cipher;
 	u_int32_t			spi, seq;
-	u_int8_t			nonce[12], aad[12], *ptr;
+	struct kyrka_proto_hdr		*hdr, aad;
+	u_int8_t			nonce[12], *ptr;
+	u_int64_t			flock_src, flock_dst;
 
 	if (ctx == NULL)
 		return (-1);
@@ -131,6 +132,13 @@ kyrka_purgatory_input(struct kyrka *ctx, const void *data, size_t len)
 		return (-1);
 	}
 
+	flock_src = be64toh(hdr->flock.src);
+	flock_dst = be64toh(hdr->flock.dst);
+
+	if (flock_src != ctx->cathedral.flock_dst ||
+	    flock_dst != ctx->cathedral.flock_src)
+		return (0);
+
 	if (spi != ctx->rx.spi)
 		return (0);
 
@@ -140,16 +148,13 @@ kyrka_purgatory_input(struct kyrka *ctx, const void *data, size_t len)
 	if (purgatory_arwin_check(&ctx->rx, hdr) == -1)
 		return (0);
 
+	memcpy(&aad, hdr, sizeof(*hdr));
 	memcpy(nonce, &ctx->rx.salt, sizeof(ctx->rx.salt));
 	memcpy(&nonce[sizeof(ctx->rx.salt)], &hdr->pn, sizeof(hdr->pn));
 
-	spi = htobe32(ctx->rx.spi);
-	memcpy(aad, &spi, sizeof(spi));
-	memcpy(&aad[sizeof(spi)], &hdr->pn, sizeof(hdr->pn));
-
 	cipher.ctx = ctx->rx.cipher;
 
-	cipher.aad = aad;
+	cipher.aad = &aad;
 	cipher.aad_len = sizeof(aad);
 
 	cipher.nonce = nonce;
@@ -170,8 +175,8 @@ kyrka_purgatory_input(struct kyrka *ctx, const void *data, size_t len)
 
 	purgatory_arwin_update(&ctx->rx, hdr);
 
-	pkt.length -= sizeof(struct kyrka_ipsec_hdr);
-	pkt.length -= sizeof(struct kyrka_ipsec_tail);
+	pkt.length -= sizeof(struct kyrka_proto_hdr);
+	pkt.length -= sizeof(struct kyrka_proto_tail);
 	pkt.length -= KYRKA_TAG_LENGTH;
 
 	tail = kyrka_packet_tail(&pkt);
@@ -194,7 +199,7 @@ kyrka_purgatory_input(struct kyrka *ctx, const void *data, size_t len)
  * Check if the given packet was too old, or already seen.
  */
 static int
-purgatory_arwin_check(struct kyrka_sa *sa, const struct kyrka_ipsec_hdr *hdr)
+purgatory_arwin_check(struct kyrka_sa *sa, const struct kyrka_proto_hdr *hdr)
 {
 	u_int64_t	bit, pn;
 
@@ -220,7 +225,7 @@ purgatory_arwin_check(struct kyrka_sa *sa, const struct kyrka_ipsec_hdr *hdr)
  * Update the anti-replay window.
  */
 static void
-purgatory_arwin_update(struct kyrka_sa *sa, const struct kyrka_ipsec_hdr *hdr)
+purgatory_arwin_update(struct kyrka_sa *sa, const struct kyrka_proto_hdr *hdr)
 {
 	u_int64_t	pn, bit;
 

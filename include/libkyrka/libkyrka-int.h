@@ -166,16 +166,10 @@
  */
 struct kyrka_ambry_aad {
 	u_int16_t	tunnel;
+	u_int64_t	flock_src;
+	u_int64_t	flock_dst;
 	u_int32_t	generation;
 	u_int8_t	seed[KYRKA_AMBRY_SEED_LEN];
-} __attribute__((packed));
-
-/*
- * The ambry header, just 4 bytes that denotes the generation.
- */
-struct kyrka_ambry_head {
-	u_int32_t	generation;
-	u_int8_t	reserved[12];
 } __attribute__((packed));
 
 /* 
@@ -183,26 +177,33 @@ struct kyrka_ambry_head {
  * the wrapped key and the authentication tag.
  */
 struct kyrka_ambry_entry {
+	u_int64_t	flock;
 	u_int16_t	tunnel;
-	u_int8_t	seed[KYRKA_AMBRY_SEED_LEN];
 	u_int8_t	key[KYRKA_AMBRY_KEY_LEN];
 	u_int8_t	tag[KYRKA_AMBRY_TAG_LEN];
 } __attribute__((packed));
 
 /*
- * An encrypted packet its head, includes the ESP header *and* the
- * 64-bit packet number used as part of the nonce later.
+ * An encrypted packet its head, includes the ESP header, the
+ * 64-bit packet number used as part of the nonce later and
+ * potential flock src/dst numbers.
  */
-struct kyrka_ipsec_hdr {
+struct kyrka_proto_hdr {
 	struct {
 		u_int32_t		spi;
 		u_int32_t		seq;
 	} esp;
-	u_int64_t		pn;
+
+	u_int64_t			pn;
+
+	struct {
+		u_int64_t		src;
+		u_int64_t		dst;
+	} flock;
 } __attribute__((packed));
 
 /* ESP trailer, added to the plaintext before encrypted. */
-struct kyrka_ipsec_tail {
+struct kyrka_proto_tail {
 	u_int8_t		pad;
 	u_int8_t		next;
 } __attribute__((packed));
@@ -214,7 +215,15 @@ struct kyrka_ipsec_tail {
  * The mask is used to hide the inner ESP header and 64-bit pn.
  */
 struct kyrka_encap_hdr {
-	struct kyrka_ipsec_hdr		ipsec;
+	struct {
+		struct {
+			u_int32_t	spi;
+			u_int32_t	seq;
+		} esp;
+
+		u_int64_t		pn;
+	} ipsec;
+
 	u_int8_t			seed[16];
 } __attribute__((packed));
 
@@ -235,7 +244,7 @@ struct kyrka_encap_hdr {
 
 /* The data starts after the header. */
 #define KYRKA_PACKET_DATA_OFFSET	\
-    (KYRKA_PACKET_HEAD_OFFSET + sizeof(struct kyrka_ipsec_hdr))
+    (KYRKA_PACKET_HEAD_OFFSET + sizeof(struct kyrka_proto_hdr))
 
 /* The maximum length of the user data we carry per packet. */
 #define KYRKA_PACKET_DATA_LEN		1500
@@ -316,7 +325,8 @@ struct kyrka_ifc {
 
 struct kyrka_offer_hdr {
 	u_int64_t		magic;
-	u_int64_t		flock;
+	u_int64_t		flock_src;
+	u_int64_t		flock_dst;
 	u_int32_t		spi;
 	u_int8_t		seed[KYRKA_KEY_OFFER_SALT_LEN];
 } __attribute__((packed));
@@ -534,9 +544,10 @@ struct kyrka {
 	/* Cathedral config. */
 	struct {
 		struct kyrka_ifc	ifc;
-		u_int64_t		flock;
 		u_int32_t		ambry;
 		u_int32_t		identity;
+		u_int64_t		flock_src;
+		u_int64_t		flock_dst;
 		u_int16_t		group;
 		int			hidden;
 		int			remembrance;
@@ -588,7 +599,7 @@ int	kyrka_cathedral_decrypt(struct kyrka *, const void *, size_t);
 int	kyrka_traffic_kdf(struct kyrka *, struct kyrka_kex *,
 	    u_int8_t *, size_t);
 void	kyrka_offer_kdf(struct kyrka *, const u_int8_t *, size_t, const char *,
-	    struct kyrka_key *, void *, size_t);
+	    struct kyrka_key *, void *, size_t, u_int64_t, u_int64_t);
 
 /* src/key.c */
 void	kyrka_key_offer_decrypt(struct kyrka *, const void *, size_t);

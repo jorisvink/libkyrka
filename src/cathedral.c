@@ -62,20 +62,25 @@ kyrka_cathedral_config(struct kyrka *ctx, struct kyrka_cathedral_cfg *cfg)
 		return (-1);
 	}
 
-	if (cfg->flock == 0 || cfg->tunnel == 0 ||
+	if (cfg->flock_src == 0 || cfg->tunnel == 0 ||
 	    cfg->identity == 0 || cfg->send == NULL) {
 		ctx->last_error = KYRKA_ERROR_PARAMETER;
 		return (-1);
 	}
 
 	ctx->cfg.spi = cfg->tunnel;
-	ctx->cathedral.flock = cfg->flock;
 	ctx->cathedral.group = cfg->group;
 	ctx->cathedral.ifc.send = cfg->send;
 	ctx->cathedral.hidden = cfg->hidden;
 	ctx->cathedral.ifc.udata = cfg->udata;
 	ctx->cathedral.identity = cfg->identity;
+	ctx->cathedral.flock_src = cfg->flock_src;
 	ctx->cathedral.remembrance = cfg->remembrance;
+
+	if (cfg->flock_dst != 0)
+		ctx->cathedral.flock_dst = cfg->flock_dst;
+	else
+		ctx->cathedral.flock_dst = ctx->cathedral.flock_src;
 
 	if (cfg->secret != NULL) {
 		if (kyrka_key_load_from_path(ctx, cfg->secret,
@@ -220,7 +225,8 @@ kyrka_cathedral_decrypt(struct kyrka *ctx, const void *data, size_t len)
 
 	kyrka_offer_kdf(ctx, ctx->cathedral.secret,
 	    sizeof(ctx->cathedral.secret), KYRKA_CATHEDRAL_KDF_LABEL,
-	    &okm, offer.hdr.seed, sizeof(offer.hdr.seed));
+	    &okm, offer.hdr.seed, sizeof(offer.hdr.seed),
+	    ctx->cathedral.flock_src, 0);
 
 	if (kyrka_offer_decrypt(&okm, &offer, CATHEDRAL_OFFER_VALID) == -1)
 		goto cleanup;
@@ -291,27 +297,37 @@ cathedral_send_offer(struct kyrka *ctx, u_int64_t magic)
 	}
 
 	op = kyrka_offer_init(&pkt, ctx->cathedral.identity, magic, type);
-	op->hdr.flock = htobe64(ctx->cathedral.flock);
+	op->hdr.flock_src = htobe64(ctx->cathedral.flock_src);
 
 	if (type != KYRKA_OFFER_TYPE_LITURGY) {
+		op->hdr.flock_dst = htobe64(ctx->cathedral.flock_dst);
+
 		info = &op->data.offer.info;
 		nyfe_mem_zero(info, sizeof(*info));
+
 		info->tunnel = htobe16(ctx->cfg.spi);
 		info->instance = htobe64(ctx->local_id);
 		info->ambry_generation = htobe32(ctx->cathedral.ambry);
 		info->rx_active = ctx->rx.spi;
 		info->rx_pending = ctx->rx.spi;
+
 		if (ctx->cathedral.remembrance)
 			info->flags = KYRKA_INFO_FLAG_REMEMBRANCE;
 	} else {
+		op->hdr.flock_dst = 0;
+
 		liturgy = &op->data.offer.liturgy;
 		nyfe_mem_zero(liturgy, sizeof(*liturgy));
+
 		liturgy->id = ctx->cfg.spi;
 		liturgy->group = htobe16(ctx->cathedral.group);
 		liturgy->hidden = ctx->cathedral.hidden;
+
 		if (ctx->cathedral.remembrance)
 			liturgy->flags = KYRKA_LITURGY_FLAG_REMEMBRANCE;
+
 		liturgy->flags |= ctx->cathedral.liturgy_flags;
+
 		nyfe_memcpy(liturgy->peers,
 		    ctx->cathedral.peers, sizeof(liturgy->peers));
 	}
@@ -320,7 +336,7 @@ cathedral_send_offer(struct kyrka *ctx, u_int64_t magic)
 
 	kyrka_offer_kdf(ctx, ctx->cathedral.secret,
 	    sizeof(ctx->cathedral.secret), KYRKA_CATHEDRAL_KDF_LABEL, &okm,
-	    op->hdr.seed, sizeof(op->hdr.seed));
+	    op->hdr.seed, sizeof(op->hdr.seed), ctx->cathedral.flock_src, 0);
 
 	if (kyrka_offer_encrypt(&okm, op) == -1) {
 		nyfe_zeroize(&okm, sizeof(okm));
@@ -463,6 +479,8 @@ cathedral_ambry_unwrap(struct kyrka *ctx, struct kyrka_ambry_offer *ambry)
 	struct nyfe_kmac256		kdf;
 	struct kyrka_ambry_aad		aad;
 	struct kyrka_cipher		cipher;
+	u_int16_t			tunnel;
+	u_int64_t			flock_src, flock_dst;
 	u_int8_t			okm[KYRKA_AMBRY_KEY_LEN];
 	u_int8_t			nonce[KYRKA_NONCE_LENGTH];
 
@@ -477,9 +495,29 @@ cathedral_ambry_unwrap(struct kyrka *ctx, struct kyrka_ambry_offer *ambry)
 	nyfe_kmac256_init(&kdf, ctx->cfg.kek, sizeof(ctx->cfg.kek),
 	    KYRKA_AMBRY_KDF, strlen(KYRKA_AMBRY_KDF));
 
-	len = sizeof(okm);
+	len = sizeof(ambry->seed);
 	nyfe_kmac256_update(&kdf, &len, sizeof(len));
 	nyfe_kmac256_update(&kdf, ambry->seed, sizeof(ambry->seed));
+
+	flock_src = htobe64(ctx->cathedral.flock_src & ~(0xff));
+	flock_dst = htobe64(ctx->cathedral.flock_dst & ~(0xff));
+
+	len = sizeof(flock_src);
+	nyfe_kmac256_update(&kdf, &len, sizeof(len));
+	nyfe_kmac256_update(&kdf, &flock_src, sizeof(flock_src));
+	nyfe_kmac256_update(&kdf, &len, sizeof(len));
+	nyfe_kmac256_update(&kdf, &flock_dst, sizeof(flock_dst));
+
+	len = sizeof(ambry->generation);
+	nyfe_kmac256_update(&kdf, &len, sizeof(len));
+	nyfe_kmac256_update(&kdf, &ambry->generation,
+	    sizeof(ambry->generation));
+
+	len = sizeof(ctx->cfg.spi);
+	tunnel = htobe16(ctx->cfg.spi);
+	nyfe_kmac256_update(&kdf, &len, sizeof(len));
+	nyfe_kmac256_update(&kdf, &tunnel, sizeof(tunnel));
+
 	nyfe_kmac256_final(&kdf, okm, sizeof(okm));
 	nyfe_zeroize(&kdf, sizeof(kdf));
 
@@ -490,7 +528,9 @@ cathedral_ambry_unwrap(struct kyrka *ctx, struct kyrka_ambry_offer *ambry)
 
 	nyfe_zeroize(okm, sizeof(okm));
 
-	aad.tunnel = ambry->tunnel;
+	aad.tunnel = tunnel;
+	aad.flock_src = flock_src;
+	aad.flock_dst = flock_dst;
 	aad.generation = ambry->generation;
 	nyfe_memcpy(aad.seed, ambry->seed, sizeof(ambry->seed));
 

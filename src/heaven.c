@@ -57,13 +57,12 @@ kyrka_heaven_ifc(struct kyrka *ctx,
 int
 kyrka_heaven_input(struct kyrka *ctx, const void *data, size_t len)
 {
-	u_int32_t			spi;
 	struct kyrka_packet		pkt;
-	struct kyrka_ipsec_hdr		*hdr;
-	struct kyrka_ipsec_tail		*tail;
+	struct kyrka_proto_tail		*tail;
 	struct kyrka_cipher		cipher;
 	size_t				overhead;
-	u_int8_t			nonce[12], aad[12], *ptr;
+	struct kyrka_proto_hdr		*hdr, aad;
+	u_int8_t			nonce[12], *ptr;
 
 	if (ctx == NULL)
 		return (-1);
@@ -110,20 +109,20 @@ kyrka_heaven_input(struct kyrka *ctx, const void *data, size_t len)
 	hdr->esp.seq = htobe32(hdr->pn & 0xffffffff);
 	hdr->pn = htobe64(hdr->pn);
 
+	hdr->flock.src = htobe64(ctx->cathedral.flock_src);
+	hdr->flock.dst = htobe64(ctx->cathedral.flock_dst);
+
 	tail->pad = 0;
 	tail->next = 0;
 	pkt.length += sizeof(*tail);
 
+	memcpy(&aad, hdr, sizeof(*hdr));
 	memcpy(nonce, &ctx->tx.salt, sizeof(ctx->tx.salt));
 	memcpy(&nonce[sizeof(ctx->tx.salt)], &hdr->pn, sizeof(hdr->pn));
 
-	spi = htobe32(ctx->tx.spi);
-	memcpy(aad, &spi, sizeof(spi));
-	memcpy(&aad[sizeof(spi)], &hdr->pn, sizeof(hdr->pn));
-
 	cipher.ctx = ctx->tx.cipher;
 
-	cipher.aad = aad;
+	cipher.aad = &aad;
 	cipher.aad_len = sizeof(aad);
 
 	cipher.nonce = nonce;

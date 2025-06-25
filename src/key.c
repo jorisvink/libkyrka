@@ -106,7 +106,8 @@ kyrka_key_offer_decrypt(struct kyrka *ctx, const void *data, size_t len)
 
 	nyfe_memcpy(&offer, data, sizeof(offer));
 	kyrka_offer_kdf(ctx, ctx->cfg.secret, sizeof(ctx->cfg.secret),
-	    OFFER_DERIVE_LABEL, &okm, offer.hdr.seed, sizeof(offer.hdr.seed));
+	    OFFER_DERIVE_LABEL, &okm, offer.hdr.seed, sizeof(offer.hdr.seed),
+	    ctx->cathedral.flock_src, ctx->cathedral.flock_dst);
 
 	if (kyrka_offer_decrypt(&okm, &offer, 10) == -1)
 		goto cleanup;
@@ -313,12 +314,15 @@ key_offer_send_fragment(struct kyrka *ctx, int which, u_int8_t frag)
 	op = kyrka_offer_init(&pkt, ctx->offer.local.spi,
 	    KYRKA_KEY_OFFER_MAGIC, KYRKA_OFFER_TYPE_EXCHANGE);
 
-	if (ctx->flags & KYRKA_FLAG_CATHEDRAL_CONFIG)
-		op->hdr.flock = htobe64(ctx->cathedral.flock);
+	if (ctx->flags & KYRKA_FLAG_CATHEDRAL_CONFIG) {
+		op->hdr.flock_src = htobe64(ctx->cathedral.flock_src);
+		op->hdr.flock_dst = htobe64(ctx->cathedral.flock_dst);
+	}
 
 	nyfe_zeroize_register(&okm, sizeof(okm));
 	kyrka_offer_kdf(ctx, ctx->cfg.secret, sizeof(ctx->cfg.secret),
-	    OFFER_DERIVE_LABEL, &okm, op->hdr.seed, sizeof(op->hdr.seed));
+	    OFFER_DERIVE_LABEL, &okm, op->hdr.seed, sizeof(op->hdr.seed),
+	    ctx->cathedral.flock_src, ctx->cathedral.flock_dst);
 
 	exchange = &op->data.offer.exchange;
 
@@ -573,7 +577,7 @@ key_exchange_finalize(struct kyrka *ctx, struct kyrka_offer *op, u_int8_t dir)
 	if (dir == KYRKA_KEY_DIRECTION_RX) {
 		ctx->rx.pkt = 0;
 		ctx->rx.seqnr = 1;
-		ctx->rx.salt = exchange->salt;
+		ctx->rx.salt = ctx->offer.local.salt;
 		ctx->rx.spi = ctx->offer.local.spi;
 		if ((next = kyrka_cipher_setup(okm, sizeof(okm))) == NULL)
 			return;
@@ -583,7 +587,7 @@ key_exchange_finalize(struct kyrka *ctx, struct kyrka_offer *op, u_int8_t dir)
 	} else {
 		ctx->tx.pkt = 0;
 		ctx->tx.seqnr = 1;
-		ctx->tx.salt = exchange->salt;
+		ctx->tx.salt = ctx->offer.remote.salt;
 		ctx->tx.spi = ctx->offer.remote.spi;
 		if ((next = kyrka_cipher_setup(okm, sizeof(okm))) == NULL)
 			return;

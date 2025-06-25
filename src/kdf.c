@@ -36,8 +36,8 @@
 /* The KDF label when deriving traffic keys. */
 #define KDF_TRAFFIC_LABEL		"SANCTUM.TRAFFIC.KDF"
 
-static void	kdf_derive_key(const u_int8_t *,
-		    size_t, int, void *, size_t, u_int64_t);
+static void	kdf_base_key(const u_int8_t *,
+		    size_t, int, void *, size_t, u_int64_t, u_int64_t);
 
 /*
  * Derive a symmetrical key from the given secret and the given seed + label
@@ -45,7 +45,8 @@ static void	kdf_derive_key(const u_int8_t *,
  */
 void
 kyrka_offer_kdf(struct kyrka *ctx, const u_int8_t *secret, size_t secret_len,
-    const char *label, struct kyrka_key *okm, void *seed, size_t seed_len)
+    const char *label, struct kyrka_key *okm, void *seed, size_t seed_len,
+    u_int64_t flock_a, u_int64_t flock_b)
 {
 	struct nyfe_kmac256	kdf;
 	u_int8_t		len, key[KYRKA_KEY_LENGTH];
@@ -62,9 +63,8 @@ kyrka_offer_kdf(struct kyrka *ctx, const u_int8_t *secret, size_t secret_len,
 	nyfe_zeroize_register(&kdf, sizeof(kdf));
 
 	len = 64;
-	kdf_derive_key(secret, secret_len,
-	    KYRKA_KDF_KEY_PURPOSE_OFFER, key, sizeof(key),
-	    ctx->cathedral.flock);
+	kdf_base_key(secret, secret_len,
+	    KYRKA_KDF_KEY_PURPOSE_OFFER, key, sizeof(key), flock_a, flock_b);
 
 	nyfe_kmac256_init(&kdf, key, sizeof(key), label, strlen(label));
 	nyfe_kmac256_update(&kdf, &len, sizeof(len));
@@ -108,8 +108,9 @@ kyrka_traffic_kdf(struct kyrka *ctx, struct kyrka_kex *kx,
 	nyfe_zeroize_register(&kdf, sizeof(kdf));
 	nyfe_zeroize_register(secret, sizeof(secret));
 
-	kdf_derive_key(ctx->cfg.secret, sizeof(ctx->cfg.secret),
-	    kx->purpose, secret, sizeof(secret), ctx->cathedral.flock);
+	kdf_base_key(ctx->cfg.secret, sizeof(ctx->cfg.secret),
+	    kx->purpose, secret, sizeof(secret),
+	    ctx->cathedral.flock_src, ctx->cathedral.flock_dst);
 
 	nyfe_kmac256_init(&kdf, secret, sizeof(secret),
 	    KDF_TRAFFIC_LABEL, strlen(KDF_TRAFFIC_LABEL));
@@ -140,19 +141,29 @@ kyrka_traffic_kdf(struct kyrka *ctx, struct kyrka_kex *kx,
 }
 
 /*
- * Derive a new key from the given shared secret for the intented purpose.
+ * Derive a base key from the given secret for a specified purpose.
  *
  * Essentially doing this:
  *	shared_secret = load_from_file()
- *	K = KMAC256(shared_secret, label_for_purpose, flock), 256-bit
  *
- * The flock is the configured cathedral flock-id if a cathedral is in use
- * (or we are the cathedral), otherwise it is 0. This is done to separate
- * base key derivation between different flock domains.
+ *	if flock_src <= flock_dst:
+ *		flock_a = flock_src
+ *		flock_b = flock_dst
+ *	else:
+ *		flock_a = flock_dst
+ *		flock_b = flock_src
+ *
+ *	x = len(flock_a) || flock_a || len(flock_b) || flock_b
+ *	K = KMAC256(shared_secret, label_for_purpose, x), 256-bit
+ *
+ * The flocks are the configured cathedral flocks if a cathedral is in use
+ * or 0 when no cathedral is in use or communicating with a cathedral.
+ *
+ * This is done to separate base key derivation between different flock domains.
  */
 static void
-kdf_derive_key(const u_int8_t *secret, size_t secret_len, int purpose,
-    void *out, size_t out_len, u_int64_t flock)
+kdf_base_key(const u_int8_t *secret, size_t secret_len, int purpose,
+    void *out, size_t out_len, u_int64_t flock_src, u_int64_t flock_dst)
 {
 	struct nyfe_kmac256	kdf;
 	u_int8_t		flen;
@@ -180,13 +191,26 @@ kdf_derive_key(const u_int8_t *secret, size_t secret_len, int purpose,
 		abort();
 	}
 
-	flen = sizeof(flock);
-	flock = htobe64(flock);
-
+	flen = sizeof(flock_src);
 	nyfe_zeroize_register(&kdf, sizeof(kdf));
 	nyfe_kmac256_init(&kdf, secret, secret_len, label, strlen(label));
-	nyfe_kmac256_update(&kdf, &flen, sizeof(flen));
-	nyfe_kmac256_update(&kdf, &flock, sizeof(flock));
+
+	if (flock_src <= flock_dst) {
+		flock_src = htobe64(flock_src);
+		flock_dst = htobe64(flock_dst);
+		nyfe_kmac256_update(&kdf, &flen, sizeof(flen));
+		nyfe_kmac256_update(&kdf, &flock_src, sizeof(flock_src));
+		nyfe_kmac256_update(&kdf, &flen, sizeof(flen));
+		nyfe_kmac256_update(&kdf, &flock_dst, sizeof(flock_dst));
+	} else {
+		flock_src = htobe64(flock_src);
+		flock_dst = htobe64(flock_dst);
+		nyfe_kmac256_update(&kdf, &flen, sizeof(flen));
+		nyfe_kmac256_update(&kdf, &flock_dst, sizeof(flock_dst));
+		nyfe_kmac256_update(&kdf, &flen, sizeof(flen));
+		nyfe_kmac256_update(&kdf, &flock_src, sizeof(flock_src));
+	}
+
 	nyfe_kmac256_final(&kdf, out, out_len);
 
 	nyfe_zeroize(&kdf, sizeof(kdf));
