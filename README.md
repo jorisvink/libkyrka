@@ -78,8 +78,8 @@ cfg.udata = NULL;
 cfg.tunnel = 0x0102;
 cfg.identity = 0xbadf00d;
 cfg.kek = "/tmp/device-kek";
-cfg.flock = 0xdeadbeefcafebabe;
 cfg.send = cathedral_send_packet;
+cfg.flock_src = 0xdeadbeefcafebabe;
 cfg.secret = "/tmp/cathedral.secret";
 
 if (kyrka_cathedral_config(ctx, &cfg) == -1)
