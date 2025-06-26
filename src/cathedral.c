@@ -492,7 +492,11 @@ cathedral_ambry_unwrap(struct kyrka *ctx, struct kyrka_ambry_offer *ambry)
 	nyfe_zeroize_register(okm, sizeof(okm));
 	nyfe_zeroize_register(&kdf, sizeof(kdf));
 
-	nyfe_kmac256_init(&kdf, ctx->cfg.kek, sizeof(ctx->cfg.kek),
+	kyrka_base_key(ctx->cfg.kek, sizeof(ctx->cfg.kek),
+	    KYRKA_KDF_KEY_PURPOSE_KEK_UNWRAP, okm, sizeof(okm),
+	    ctx->cathedral.flock_src, ctx->cathedral.flock_dst);
+
+	nyfe_kmac256_init(&kdf, okm, sizeof(okm),
 	    KYRKA_AMBRY_KDF, strlen(KYRKA_AMBRY_KDF));
 
 	len = sizeof(ambry->seed);

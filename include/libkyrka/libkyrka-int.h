@@ -160,6 +160,7 @@
 #define KYRKA_KDF_KEY_PURPOSE_OFFER		1
 #define KYRKA_KDF_KEY_PURPOSE_TRAFFIC_RX	2
 #define KYRKA_KDF_KEY_PURPOSE_TRAFFIC_TX	3
+#define KYRKA_KDF_KEY_PURPOSE_KEK_UNWRAP	4
 
 /*
  * The ambry AAD data.
@@ -596,6 +597,8 @@ int	pqcrystals_kyber1024_ref_dec(u_int8_t *, const u_int8_t *,
 int	kyrka_cathedral_decrypt(struct kyrka *, const void *, size_t);
 
 /* src/kdf.c */
+void	kyrka_base_key(const u_int8_t *, size_t, int, void *,
+	    size_t, u_int64_t, u_int64_t);
 int	kyrka_traffic_kdf(struct kyrka *, struct kyrka_kex *,
 	    u_int8_t *, size_t);
 void	kyrka_offer_kdf(struct kyrka *, const u_int8_t *, size_t, const char *,

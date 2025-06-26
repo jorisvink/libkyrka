@@ -33,11 +33,11 @@
 /* The KDF label for traffic key derivation from shared secret (TX). */
 #define KDF_KEY_TRAFFIC_TX_LABEL	"SANCTUM.KEY.TRAFFIC.TX.KDF"
 
+/* The KDF label for the unwrapping key derivation from a KEK. */
+#define KDF_KEY_KEK_UNWRAP_LABEL	"SANCTUM.KEY.KEK.UNWRAP.KDF"
+
 /* The KDF label when deriving traffic keys. */
 #define KDF_TRAFFIC_LABEL		"SANCTUM.TRAFFIC.KDF"
-
-static void	kdf_base_key(const u_int8_t *,
-		    size_t, int, void *, size_t, u_int64_t, u_int64_t);
 
 /*
  * Derive a symmetrical key from the given secret and the given seed + label
@@ -63,7 +63,7 @@ kyrka_offer_kdf(struct kyrka *ctx, const u_int8_t *secret, size_t secret_len,
 	nyfe_zeroize_register(&kdf, sizeof(kdf));
 
 	len = 64;
-	kdf_base_key(secret, secret_len,
+	kyrka_base_key(secret, secret_len,
 	    KYRKA_KDF_KEY_PURPOSE_OFFER, key, sizeof(key), flock_a, flock_b);
 
 	nyfe_kmac256_init(&kdf, key, sizeof(key), label, strlen(label));
@@ -108,7 +108,7 @@ kyrka_traffic_kdf(struct kyrka *ctx, struct kyrka_kex *kx,
 	nyfe_zeroize_register(&kdf, sizeof(kdf));
 	nyfe_zeroize_register(secret, sizeof(secret));
 
-	kdf_base_key(ctx->cfg.secret, sizeof(ctx->cfg.secret),
+	kyrka_base_key(ctx->cfg.secret, sizeof(ctx->cfg.secret),
 	    kx->purpose, secret, sizeof(secret),
 	    ctx->cathedral.flock_src, ctx->cathedral.flock_dst);
 
@@ -144,7 +144,7 @@ kyrka_traffic_kdf(struct kyrka *ctx, struct kyrka_kex *kx,
  * Derive a base key from the given secret for a specified purpose.
  *
  * Essentially doing this:
- *	shared_secret = load_from_file()
+ *	secret = load_from_file()
  *
  *	if flock_src <= flock_dst:
  *		flock_a = flock_src
@@ -154,15 +154,15 @@ kyrka_traffic_kdf(struct kyrka *ctx, struct kyrka_kex *kx,
  *		flock_b = flock_src
  *
  *	x = len(flock_a) || flock_a || len(flock_b) || flock_b
- *	K = KMAC256(shared_secret, label_for_purpose, x), 256-bit
+ *	K = KMAC256(secret, label_for_purpose, x), 256-bit
  *
  * The flocks are the configured cathedral flocks if a cathedral is in use
  * or 0 when no cathedral is in use or communicating with a cathedral.
  *
  * This is done to separate base key derivation between different flock domains.
  */
-static void
-kdf_base_key(const u_int8_t *secret, size_t secret_len, int purpose,
+void
+kyrka_base_key(const u_int8_t *secret, size_t secret_len, int purpose,
     void *out, size_t out_len, u_int64_t flock_src, u_int64_t flock_dst)
 {
 	struct nyfe_kmac256	kdf;
@@ -175,7 +175,8 @@ kdf_base_key(const u_int8_t *secret, size_t secret_len, int purpose,
 	PRECOND(out_len == KYRKA_KEY_LENGTH);
 	PRECOND(purpose == KYRKA_KDF_KEY_PURPOSE_OFFER ||
 	    purpose == KYRKA_KDF_KEY_PURPOSE_TRAFFIC_RX ||
-	    purpose == KYRKA_KDF_KEY_PURPOSE_TRAFFIC_TX);
+	    purpose == KYRKA_KDF_KEY_PURPOSE_TRAFFIC_TX ||
+	    purpose == KYRKA_KDF_KEY_PURPOSE_KEK_UNWRAP);
 
 	switch (purpose) {
 	case KYRKA_KDF_KEY_PURPOSE_OFFER:
@@ -186,6 +187,9 @@ kdf_base_key(const u_int8_t *secret, size_t secret_len, int purpose,
 		break;
 	case KYRKA_KDF_KEY_PURPOSE_TRAFFIC_TX:
 		label = KDF_KEY_TRAFFIC_TX_LABEL;
+		break;
+	case KYRKA_KDF_KEY_PURPOSE_KEK_UNWRAP:
+		label = KDF_KEY_KEK_UNWRAP_LABEL;
 		break;
 	default:
 		abort();
