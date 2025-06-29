@@ -16,11 +16,6 @@
 
 #include <sys/types.h>
 
-#if !defined(PLATFORM_WINDOWS)
-#include <netinet/in.h>
-#include <arpa/inet.h>
-#endif
-
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
