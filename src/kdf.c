@@ -20,8 +20,6 @@
 #include <string.h>
 #include <unistd.h>
 
-#include <sodium.h>
-
 #include "libkyrka-int.h"
 
 /* The KDF label for offer key derivation from shared secret. */
