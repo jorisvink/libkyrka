@@ -734,7 +734,10 @@ pykyrka_cathedral_configure(PyObject *self, PyObject *args, PyObject *kwargs)
 	cfg.kek = python_string_from_dict(kwargs, "kek");
 	cfg.secret = python_string_from_dict(kwargs, "secret");
 
-	if (python_uint64_from_dict(kwargs, "flock", &cfg.flock) == -1)
+	if (python_uint64_from_dict(kwargs, "flock_src", &cfg.flock_src) == -1)
+		return (NULL);
+
+	if (python_uint64_from_dict(kwargs, "flock_dst", &cfg.flock_dst) == -1)
 		return (NULL);
 
 	if (python_uint32_from_dict(kwargs, "identity", &cfg.identity) == -1)
