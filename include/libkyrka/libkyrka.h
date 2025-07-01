@@ -21,6 +21,8 @@
 extern "C" {
 #endif
 
+#include <sys/types.h>
+
 #if defined(PLATFORM_WINDOWS)
 #include "portable_win.h"
 #endif
