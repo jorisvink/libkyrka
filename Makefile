@@ -76,7 +76,8 @@ LIBNYFE_OBJS=		nyfe/$(OBJDIR)/sha3.o \
 			nyfe/$(OBJDIR)/agelas.o \
 			nyfe/$(OBJDIR)/mem.o \
 			nyfe/$(OBJDIR)/random.o \
-			nyfe/$(OBJDIR)/file.o
+			nyfe/$(OBJDIR)/file.o \
+			nyfe/$(OBJDIR)/utils.o
 
 OBJS=	$(SRC:%.c=$(OBJDIR)/%.o)
 OBJS+=	$(OBJDIR)/version.o
