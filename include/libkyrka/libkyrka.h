@@ -23,6 +23,8 @@ extern "C" {
 
 #include <sys/types.h>
 
+#include <stdarg.h>
+
 #if defined(PLATFORM_WINDOWS)
 #include "portable_win.h"
 #endif
@@ -161,6 +163,8 @@ int	kyrka_peer_timeout(KYRKA *);
 void	kyrka_emergency_erase(void);
 KYRKA	*kyrka_ctx_alloc(void (*event)(KYRKA *, union kyrka_event *, void *),
 	    void *);
+
+void	kyrka_fatal_callback(void (*)(const char *, va_list));
 
 int	kyrka_key_manage(KYRKA *);
 int	kyrka_secret_load_path(KYRKA *, const char *);

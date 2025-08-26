@@ -19,11 +19,17 @@
 
 #include <errno.h>
 #include <fcntl.h>
+#include <stdarg.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <unistd.h>
 
 #include "libkyrka-int.h"
+
+static void	kyrka_fatal(const char *, va_list);
+
+/* The fatal callback. */
+static void	(*fatal_callback)(const char *, va_list);
 
 /*
  * Returns the libkyrka its version string, including the build date and
@@ -38,6 +44,20 @@ kyrka_version(void)
 	    kyrka_build_rev, kyrka_build_date);
 
 	return (version);
+}
+
+/*
+ * Sets the fatal callback for the underlying nyfe library. Nyfe only calls
+ * this in case it encounters a very serious error and it cannot continue.
+ *
+ * The callback specified here will receive the reason for log purposes and
+ * may do any other cleanup required before it has to exit.
+ */
+void
+kyrka_fatal_callback(void (*cb)(const char *, va_list))
+{
+	fatal_callback = cb;
+	nyfe_fatal_callback(kyrka_fatal);
 }
 
 /*
@@ -287,4 +307,26 @@ kyrka_file_open(struct kyrka *ctx, const char *path)
 	}
 
 	return (fd);
+}
+
+/*
+ * An unrecoverable error occurred, we will perform an emergency erase
+ * and call the application specified callback (if any).
+ */
+static void
+kyrka_fatal(const char *fmt, va_list args)
+{
+	PRECOND(fmt != NULL);
+
+	kyrka_emergency_erase();
+
+	if (fatal_callback != NULL) {
+		fprintf(stderr, "libkyrka error: ");
+		vfprintf(stderr, fmt, args);
+		fprintf(stderr, "\n");
+	} else {
+		fatal_callback(fmt, args);
+	}
+
+	exit(1);
 }
