@@ -62,7 +62,7 @@ struct integer {
 };
 
 PyMODINIT_FUNC		PyInit_libkyrka(void);
-void			fatal(const char *, ...);
+static void		python_fatal(const char *, va_list);
 
 static PyObject		*pykyrka_alloc(PyObject *, PyObject *);
 static PyObject		*pykyrka_version(PyObject *, PyObject *);
@@ -92,7 +92,7 @@ static void		python_callback_run(struct pykyrka *,
 			    struct callback *, const void *, size_t, u_int64_t);
 
 static PyObject		*python_integer_lookup(struct integer *, u_int64_t);
-static void		python_integer_constants(PyObject *, struct integer *);
+static int		python_integer_constants(PyObject *, struct integer *);
 
 static const char	*python_string_from_dict(PyObject *, const char *);
 static int		python_bool_from_dict(PyObject *, const char *, int *);
@@ -231,9 +231,14 @@ PyInit_libkyrka(void)
 	if ((mod = PyModule_Create(&module)) == NULL)
 		return (NULL);
 
-	python_integer_constants(mod, constants_misc);
-	python_integer_constants(mod, constants_errors);
-	python_integer_constants(mod, constants_events);
+	if (python_integer_constants(mod, constants_misc) == -1 ||
+	    python_integer_constants(mod, constants_errors) == -1 ||
+	    python_integer_constants(mod, constants_events) == -1) {
+		Py_DECREF(mod);
+		return (NULL);
+	}
+
+	kyrka_fatal_callback(python_fatal);
 
 	return (mod);
 }
@@ -242,19 +247,13 @@ PyInit_libkyrka(void)
  * Extremely bad juju happened, ideally we might not want our python
  * module to just blow up the entire process but we have no other choice.
  */
-void
-fatal(const char *fmt, ...)
+static void
+python_fatal(const char *fmt, va_list args)
 {
-	va_list		args;
-
 	kyrka_emergency_erase();
 
 	fprintf(stderr, "fatal libkyrka error: ");
-
-	va_start(args, fmt);
 	vfprintf(stderr, fmt, args);
-	va_end(args);
-
 	fprintf(stderr, "\n");
 
 	exit (1);
@@ -323,7 +322,9 @@ kyrka_cb_event(KYRKA *kctx, union kyrka_event *evt, void *udata)
 			goto cleanup;
 		break;
 	default:
-		fatal("unknown libkyrka event %u", evt->type);
+		PyErr_Format(PyExc_RuntimeError,
+		    "unknown libkyrka event %u", evt->type);
+		goto cleanup;
 	}
 
 	result = PyObject_CallFunctionObjArgs(ctx->event.cb,
@@ -1084,7 +1085,7 @@ python_dict_add_uint64(PyObject *dict, const char *name, u_int64_t value)
  * Helper function to push a constant uint64 value into the module
  * so it can be accessed from python.
  */
-static void
+static int
 python_integer_constants(PyObject *mod, struct integer *list)
 {
 	int		i;
@@ -1094,12 +1095,20 @@ python_integer_constants(PyObject *mod, struct integer *list)
 
 	for (i = 0; list[i].name != NULL; i++) {
 		list[i].obj = PyLong_FromUnsignedLongLong(list[i].value);
-		if (list[i].obj == NULL)
-			fatal("failed to create %s", list[i].name);
+		if (list[i].obj == NULL) {
+			PyErr_Format(PyExc_RuntimeError,
+			    "failed to create %s", list[i].name);
+			return (-1);
+		}
 
-		if (PyModule_AddObject(mod, list[i].name, list[i].obj) == -1)
-			fatal("failed to register %s", list[i].name);
+		if (PyModule_AddObject(mod, list[i].name, list[i].obj) == -1) {
+			PyErr_Format(PyExc_RuntimeError,
+			    "failed to register %s", list[i].name);
+			return (-1);
+		}
 	}
+
+	return (0);
 }
 
 /*
@@ -1135,8 +1144,9 @@ python_kyrka_exception(u_int64_t error)
 			break;
 	}
 
-	if (constants_errors[i].name == NULL)
-		fatal("error '%d' not found", error);
-
-	PyErr_SetObject(PyExc_RuntimeError, constants_errors[i].obj);
+	if (constants_errors[i].name == NULL) {
+		PyErr_Format(PyExc_RuntimeError, "error '%d' not found", error);
+	} else {
+		PyErr_SetObject(PyExc_RuntimeError, constants_errors[i].obj);
+	}
 }
