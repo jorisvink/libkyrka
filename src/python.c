@@ -256,7 +256,7 @@ python_fatal(const char *fmt, va_list args)
 	vfprintf(stderr, fmt, args);
 	fprintf(stderr, "\n");
 
-	exit (1);
+	exit(1);
 }
 
 /*
