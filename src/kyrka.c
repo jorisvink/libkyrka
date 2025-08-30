@@ -119,6 +119,9 @@ kyrka_secret_load_path(KYRKA *ctx, const char *path)
 
 /*
  * Set the shared secret directly by copying in the given secret.
+ *
+ * This is not required for cathedral setups as the shared secret comes
+ * from the cathedral in ambry form.
  */
 int
 kyrka_secret_load(KYRKA *ctx, const void *secret, size_t len)
@@ -140,8 +143,10 @@ kyrka_secret_load(KYRKA *ctx, const void *secret, size_t len)
 
 /*
  * Sets the cathedral secret directly by copying in the given secret.
+ *
  * Only call this if you did not specify the secret in the kyrka_cathedral_cfg
- * data structure when calling kyrka_cathedral_config().
+ * data structure when calling kyrka_cathedral_config() or did not call
+ * kyrka_vicar_load().
  */
 int
 kyrka_cathedral_secret_load(KYRKA *ctx, const void *secret, size_t len)
@@ -163,8 +168,10 @@ kyrka_cathedral_secret_load(KYRKA *ctx, const void *secret, size_t len)
 
 /*
  * Sets the device KEK secret directly by copying in the given secret.
+ *
  * Only call this if you did not specify the kek in the kyrka_cathedral_cfg
- * data structure when calling kyrka_cathedral_config().
+ * data structure when calling kyrka_cathedral_config() or did not call
+ * kyrka_vicar_load().
  */
 int
 kyrka_device_kek_load(KYRKA *ctx, const void *secret, size_t len)
@@ -237,6 +244,7 @@ kyrka_peer_timeout(KYRKA *ctx)
 
 /*
  * Perform an "emergency" erase of all data allocated by all KYRKA contexts.
+ *
  * You cannot safely use *ANY* allocated KYRKA context after calling
  * this function. Use this with caution.
  *
