@@ -186,6 +186,9 @@ int	kyrka_cathedral_nat_detection(KYRKA *);
 int	kyrka_cathedral_liturgy(KYRKA *, u_int8_t *, size_t);
 int	kyrka_cathedral_config(KYRKA *, struct kyrka_cathedral_cfg *);
 
+int	kyrka_vicar_load(KYRKA *, const char *, const char *,
+	    struct kyrka_cathedral_cfg *);
+
 #if defined(__cplusplus)
 }
 #endif

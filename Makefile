@@ -37,7 +37,8 @@ SRC=	src/kyrka.c \
 	src/heaven.c \
 	src/offer.c \
 	src/packet.c \
-	src/purgatory.c
+	src/purgatory.c \
+	src/vicar.c
 
 ifeq ("$(SANITIZE)", "1")
 	CFLAGS+=-fsanitize=address,undefined
@@ -76,6 +77,7 @@ LIBNYFE_OBJS=		nyfe/$(OBJDIR)/sha3.o \
 			nyfe/$(OBJDIR)/agelas.o \
 			nyfe/$(OBJDIR)/mem.o \
 			nyfe/$(OBJDIR)/random.o \
+			nyfe/$(OBJDIR)/passphrase.o \
 			nyfe/$(OBJDIR)/file.o \
 			nyfe/$(OBJDIR)/utils.o
 
