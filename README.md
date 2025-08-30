@@ -11,6 +11,10 @@ Because it implements the sanctum protocol it can talk to sanctum daemons
 and even make use of existing sanctum infrastructure (such as cathedrals
 for discovery and relay or key distribution).
 
+Note that libkyrka is not thread-safe and you may not run different
+KYRKA contexts in different threads. It was designed to be run on an
+event loop using single-threaded i/o multiplexing.
+
 # Building
 
 ```
@@ -144,12 +148,12 @@ using the ambry distributions from the cathedral.
 
 ## Caveats
 
-Due to its use of libnyfe underneath you will need to implement
-a fatal() function in your code. I never got around to making
-libnyfe a proper lib, maybe one day.
+Some of the underlying libs that libkyrka uses will call a
+fatal function in case of things that should never happen, happen.
 
-```c
-void fatal(const char *fmt, ...);
-```
+I am aware this isn't ideal.
 
-This fatal() function must call nyfe_zeroize_all() followed by an exit().
+You can hook this using kyrka_fatal_callback() and passing
+a function pointer to a function that is to be called when
+this happens. This gives you the possibility to log the
+error and cleanup your application resources.
