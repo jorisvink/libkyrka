@@ -93,7 +93,7 @@ if (kyrka_cathedral_config(ctx, &cfg) == -1)
 You can also load encrypted vicar configurations in combination with
 a cathedral config:
 
-```
+```c
 if (kyrka_vicar_load(ctx, "vicar.cfg", "passphrase", &cfg) == -1)
 	errx(1, "kyrka_vicar_load: %d", kyrka_last_error(ctx));
 ```
