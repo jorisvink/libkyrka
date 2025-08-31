@@ -491,6 +491,9 @@ struct kyrka {
 	void		*udata;
 	void		(*event)(struct kyrka *, union kyrka_event *, void *);
 
+	/* Randomly generated key for mask generation kdf. */
+	u_int8_t			mask[KYRKA_KEY_LENGTH];
+
 	/* Randomly generated local 64-bit id. */
 	u_int64_t			local_id;
 
@@ -610,6 +613,7 @@ int	kyrka_key_load_from_path(struct kyrka *,
 	    const char *, u_int8_t *, size_t);
 
 /* src/kyrka.c */
+void	kyrka_mask(KYRKA *, u_int8_t *, size_t);
 int	kyrka_file_open(struct kyrka *, const char *);
 
 /* src/offer.c */

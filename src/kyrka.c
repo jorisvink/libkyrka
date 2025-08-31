@@ -17,6 +17,7 @@
 #include <sys/types.h>
 #include <sys/stat.h>
 
+#include <inttypes.h>
 #include <errno.h>
 #include <fcntl.h>
 #include <stdarg.h>
@@ -25,6 +26,9 @@
 #include <unistd.h>
 
 #include "libkyrka-int.h"
+
+/* Label used for mask generation. */
+#define KYRKA_MASK_LABEL		"KYRKA.MEMORY.MASK.KDF"
 
 static void	kyrka_fatal(const char *, va_list);
 
@@ -81,6 +85,7 @@ kyrka_ctx_alloc(void (*event)(struct kyrka *, union kyrka_event *, void *),
 	nyfe_zeroize_register(ctx, sizeof(*ctx));
 
 	kyrka_random_init();
+	kyrka_random_bytes(ctx->mask, sizeof(ctx->mask));
 	kyrka_random_bytes(&ctx->local_id, sizeof(ctx->local_id));
 
 	kyrka_random_bytes(ctx->cfg.kek, sizeof(ctx->cfg.kek));
@@ -135,6 +140,7 @@ kyrka_secret_load(KYRKA *ctx, const void *secret, size_t len)
 	}
 
 	nyfe_memcpy(ctx->cfg.secret, secret, len);
+	kyrka_mask(ctx, ctx->cfg.secret, sizeof(ctx->cfg.secret));
 
 	ctx->flags |= KYRKA_FLAG_SECRET_SET;
 
@@ -160,6 +166,7 @@ kyrka_cathedral_secret_load(KYRKA *ctx, const void *secret, size_t len)
 	}
 
 	nyfe_memcpy(ctx->cathedral.secret, secret, len);
+	kyrka_mask(ctx, ctx->cathedral.secret, sizeof(ctx->cathedral.secret));
 
 	ctx->flags |= KYRKA_FLAG_CATHEDRAL_SECRET;
 
@@ -185,6 +192,7 @@ kyrka_device_kek_load(KYRKA *ctx, const void *secret, size_t len)
 	}
 
 	nyfe_memcpy(ctx->cfg.kek, secret, len);
+	kyrka_mask(ctx, ctx->cfg.kek, sizeof(ctx->cfg.kek));
 
 	ctx->flags |= KYRKA_FLAG_DEVICE_KEK;
 
@@ -315,6 +323,52 @@ kyrka_file_open(struct kyrka *ctx, const char *path)
 	}
 
 	return (fd);
+}
+
+/*
+ * Mask or unmask the given data. We generate the relevant key material
+ * based on the pointer and the randomly generated mask in the context.
+ *
+ * Note this is only additional layer of security, specifically against
+ * memory leaking or memory dumping.
+ *
+ * If an attacker is able to figure out the location of the context
+ * struct in memory this does not help anything.
+ */
+void
+kyrka_mask(KYRKA *ctx, u_int8_t *secret, size_t len)
+{
+	u_int64_t		ptr;
+	struct nyfe_kmac256	kdf;
+	struct nyfe_agelas	cipher;
+	u_int8_t		okm[64];
+
+	PRECOND(ctx != NULL);
+	PRECOND(secret != NULL);
+	PRECOND(len == KYRKA_KEY_LENGTH);
+
+	ptr = (u_int64_t)secret;
+
+	nyfe_zeroize_register(okm, sizeof(okm));
+	nyfe_zeroize_register(&kdf, sizeof(kdf));
+	nyfe_zeroize_register(&cipher, sizeof(cipher));
+
+	nyfe_kmac256_init(&kdf, ctx->mask, sizeof(ctx->mask),
+	    KYRKA_MASK_LABEL, sizeof(KYRKA_MASK_LABEL) - 1);
+
+	nyfe_kmac256_update(&kdf, &ptr, sizeof(ptr));
+	nyfe_kmac256_final(&kdf, okm, sizeof(okm));
+
+	/*
+	 * Note that we can use encrypt because we have < 136
+	 * bytes of plaintext each time (32 bytes).
+	 */
+	nyfe_agelas_init(&cipher, okm, sizeof(okm));
+	nyfe_agelas_encrypt(&cipher, secret, secret, len);
+
+	nyfe_zeroize(okm, sizeof(okm));
+	nyfe_zeroize(&kdf, sizeof(kdf));
+	nyfe_zeroize(&cipher, sizeof(cipher));
 }
 
 /*

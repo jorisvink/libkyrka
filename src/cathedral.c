@@ -218,10 +218,12 @@ kyrka_cathedral_decrypt(struct kyrka *ctx, const void *data, size_t len)
 
 	nyfe_memcpy(&offer, data, sizeof(offer));
 
+	kyrka_mask(ctx, ctx->cathedral.secret, sizeof(ctx->cathedral.secret));
 	kyrka_offer_kdf(ctx, ctx->cathedral.secret,
 	    sizeof(ctx->cathedral.secret), KYRKA_CATHEDRAL_KDF_LABEL,
 	    &okm, offer.hdr.seed, sizeof(offer.hdr.seed),
 	    ctx->cathedral.flock_src, 0);
+	kyrka_mask(ctx, ctx->cathedral.secret, sizeof(ctx->cathedral.secret));
 
 	if (kyrka_offer_decrypt(&okm, &offer, CATHEDRAL_OFFER_VALID) == -1)
 		goto cleanup;
@@ -329,9 +331,11 @@ cathedral_send_offer(struct kyrka *ctx, u_int64_t magic)
 
 	nyfe_zeroize_register(&okm, sizeof(okm));
 
+	kyrka_mask(ctx, ctx->cathedral.secret, sizeof(ctx->cathedral.secret));
 	kyrka_offer_kdf(ctx, ctx->cathedral.secret,
 	    sizeof(ctx->cathedral.secret), KYRKA_CATHEDRAL_KDF_LABEL, &okm,
 	    op->hdr.seed, sizeof(op->hdr.seed), ctx->cathedral.flock_src, 0);
+	kyrka_mask(ctx, ctx->cathedral.secret, sizeof(ctx->cathedral.secret));
 
 	if (kyrka_offer_encrypt(&okm, op) == -1) {
 		nyfe_zeroize(&okm, sizeof(okm));
@@ -490,9 +494,11 @@ cathedral_ambry_unwrap(struct kyrka *ctx, struct kyrka_ambry_offer *ambry)
 	flock_src = ctx->cathedral.flock_src & ~(0xff);
 	flock_dst = ctx->cathedral.flock_dst & ~(0xff);
 
+	kyrka_mask(ctx, ctx->cfg.kek, sizeof(ctx->cfg.kek));
 	kyrka_base_key(ctx->cfg.kek, sizeof(ctx->cfg.kek),
 	    KYRKA_KDF_KEY_PURPOSE_KEK_UNWRAP, okm, sizeof(okm),
 	    flock_src, flock_dst);
+	kyrka_mask(ctx, ctx->cfg.kek, sizeof(ctx->cfg.kek));
 
 	nyfe_kmac256_init(&kdf, okm, sizeof(okm),
 	    KYRKA_AMBRY_KDF, strlen(KYRKA_AMBRY_KDF));
@@ -552,7 +558,9 @@ cathedral_ambry_unwrap(struct kyrka *ctx, struct kyrka_ambry_offer *ambry)
 		return;
 
 	ctx->cathedral.ambry = be32toh(ambry->generation);
+
 	nyfe_memcpy(ctx->cfg.secret, ambry->key, sizeof(ambry->key));
+	kyrka_mask(ctx, ctx->cfg.secret, sizeof(ctx->cfg.secret));
 
 	ctx->flags |= KYRKA_FLAG_SECRET_SET;
 

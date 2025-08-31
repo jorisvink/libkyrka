@@ -106,9 +106,11 @@ kyrka_traffic_kdf(struct kyrka *ctx, struct kyrka_kex *kx,
 	nyfe_zeroize_register(&kdf, sizeof(kdf));
 	nyfe_zeroize_register(secret, sizeof(secret));
 
+	kyrka_mask(ctx, ctx->cfg.secret, sizeof(ctx->cfg.secret));
 	kyrka_base_key(ctx->cfg.secret, sizeof(ctx->cfg.secret),
 	    kx->purpose, secret, sizeof(secret),
 	    ctx->cathedral.flock_src, ctx->cathedral.flock_dst);
+	kyrka_mask(ctx, ctx->cfg.secret, sizeof(ctx->cfg.secret));
 
 	nyfe_kmac256_init(&kdf, secret, sizeof(secret),
 	    KDF_TRAFFIC_LABEL, strlen(KDF_TRAFFIC_LABEL));
