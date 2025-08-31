@@ -94,12 +94,18 @@ You can also load encrypted vicar configurations in combination with
 a cathedral config:
 
 ```c
+
+/*
+ * The loaded vicar config will set kek, cathedral id, secret, tunnel id
+ * and flock inside of the supplied kyrka_cathedral_cfg struct.
+ *
+ * Meaning you do not need to set cfg.kek, cfg.secret, cfg.flock_src,
+ * cfg.tunnel and cfg.identity.
+ */
+
 if (kyrka_vicar_load(ctx, "vicar.cfg", "passphrase", &cfg) == -1)
 	errx(1, "kyrka_vicar_load: %d", kyrka_last_error(ctx));
 ```
-
-The loaded vicar config will set kek, cathedral id, secret, tunnel id
-inside of the supplied **kyrka_cathedral_cfg** struct.
 
 Set both the heaven (clear) or purgatory (crypto) callbacks. These are
 called by libkyrka when plaintext is available to be sent (on heaven)
