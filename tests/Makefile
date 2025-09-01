@@ -15,7 +15,8 @@ CFLAGS+=-g
 
 SRC=	framework.c
 
-TESTS=	$(OBJDIR)/test-api
+TESTS=	$(OBJDIR)/test-api \
+	$(OBJDIR)/test-vicar
 OBJS=	$(SRC:%.c=$(OBJDIR)/%.o)
 
 # XXX ideally should be tied to the mk stuff in libkyrka
@@ -47,6 +48,7 @@ coverage_html: coverage.info
 
 coverage.info: $(TESTS)
 	$(OBJDIR)/test-api
+	$(OBJDIR)/test-vicar
 	lcov -d ../obj-host -c -o coverage.info
 
 clean:

@@ -150,6 +150,7 @@ tests-run:
 	env COVERAGE=1 SANITIZE=1 ./dist-build/host-build.sh
 	$(MAKE) -C tests
 	cd tests && ./obj/test-api
+	cd tests && ./obj/test-vicar
 
 clean:
 	$(MAKE) -C nyfe clean

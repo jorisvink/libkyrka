@@ -40,7 +40,7 @@ First, create a new KYRKA context:
 ```c
 KYRKA	*ctx;
 
-if ((ctx = kyrka_ctx_alloc(NULL)) == NULL)
+if ((ctx = kyrka_ctx_alloc(NULL, NULL)) == NULL)
 	errx(1, "failed to create KYRKA context");
 ```
 
@@ -91,10 +91,10 @@ if (kyrka_cathedral_config(ctx, &cfg) == -1)
 ```
 
 You can also load encrypted vicar configurations in combination with
-a cathedral config:
+a cathedral config. This way you can load key material into memory
+in masked form and copy them to new contexts when required.
 
 ```c
-
 /*
  * The loaded vicar config will set kek, cathedral id, secret, tunnel id
  * and flock inside of the supplied kyrka_cathedral_cfg struct.
@@ -105,6 +105,13 @@ a cathedral config:
 
 if (kyrka_vicar_load(ctx, "vicar.cfg", "passphrase", &cfg) == -1)
 	errx(1, "kyrka_vicar_load: %d", kyrka_last_error(ctx));
+
+/*
+ * Then you can use kyrka_key_material_copy() if you want to copy
+ * the masked key material from the base context to a new one.
+ */
+if (kyrka_key_material_copy(new_ctx, ctx) == -1)
+	errx(1, "kyrka_key_material_copy: %d", kyrka_last_error(ctx));
 ```
 
 Set both the heaven (clear) or purgatory (crypto) callbacks. These are

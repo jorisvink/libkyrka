@@ -61,6 +61,7 @@ internal_key_load(void)
 	VERIFY(ctx != NULL);
 
 	api_populate_secret_key(ctx, loaded, sizeof(loaded));
+	kyrka_mask(ctx, loaded, sizeof(loaded));
 	ret = memcmp(load_key_expected, loaded, sizeof(loaded));
 	VERIFY(ret == 0);
 }
@@ -109,6 +110,8 @@ api_kyrka_secret_load_path(void)
 	VERIFY(ctx->flags & KYRKA_FLAG_SECRET_SET);
 
 	api_populate_secret_key(ctx, expected, sizeof(expected));
+	kyrka_mask(ctx, expected, sizeof(expected));
+	kyrka_mask(ctx, ctx->cfg.secret, sizeof(ctx->cfg.secret));
 	ret = memcmp(ctx->cfg.secret, expected, sizeof(expected));
 	VERIFY(ret == 0);
 }
@@ -143,6 +146,7 @@ api_kyrka_secret_load(void)
 	VERIFY(ret == 0);
 	VERIFY(ctx->flags & KYRKA_FLAG_SECRET_SET);
 
+	kyrka_mask(ctx, ctx->cfg.secret, sizeof(ctx->cfg.secret));
 	ret = memcmp(ctx->cfg.secret, expected, sizeof(expected));
 	VERIFY(ret == 0);
 }
@@ -177,6 +181,7 @@ api_kyrka_cathedral_secret_load(void)
 	VERIFY(ret == 0);
 	VERIFY(ctx->flags & KYRKA_FLAG_CATHEDRAL_SECRET);
 
+	kyrka_mask(ctx, ctx->cathedral.secret, sizeof(ctx->cathedral.secret));
 	ret = memcmp(ctx->cathedral.secret, expected, sizeof(expected));
 	VERIFY(ret == 0);
 }
@@ -211,6 +216,7 @@ api_kyrka_device_kek_load(void)
 	VERIFY(ret == 0);
 	VERIFY(ctx->flags & KYRKA_FLAG_DEVICE_KEK);
 
+	kyrka_mask(ctx, ctx->cfg.kek, sizeof(ctx->cfg.kek));
 	ret = memcmp(ctx->cfg.kek, expected, sizeof(expected));
 	VERIFY(ret == 0);
 }

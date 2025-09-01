@@ -99,6 +99,68 @@ kyrka_ctx_alloc(void (*event)(struct kyrka *, union kyrka_event *, void *),
 }
 
 /*
+ * Copy all key material that is not session keys from one context to another.
+ *
+ * This means we copy if present:
+ *	- kek
+ *	- cathedral secret
+ *	- encapsulation secret
+ *	- shared symmetrical secret
+ */
+int
+kyrka_key_material_copy(KYRKA *ctx, KYRKA *src)
+{
+	if (ctx == NULL)
+		return (-1);
+
+	if (src == NULL) {
+		ctx->last_error = KYRKA_ERROR_PARAMETER;
+		return (-1);
+	}
+
+	if (src->flags & KYRKA_FLAG_ENCAPSULATION) {
+		nyfe_memcpy(ctx->encap.tek, src->encap.tek,
+		    sizeof(src->encap.tek));
+
+		ctx->flags |= KYRKA_FLAG_ENCAPSULATION;
+	}
+
+	if (src->flags & KYRKA_FLAG_DEVICE_KEK) {
+		kyrka_mask(src, src->cfg.kek, sizeof(src->cfg.kek));
+		nyfe_memcpy(ctx->cfg.kek, src->cfg.kek, sizeof(src->cfg.kek));
+		kyrka_mask(ctx, ctx->cfg.kek, sizeof(ctx->cfg.kek));
+		kyrka_mask(src, src->cfg.kek, sizeof(src->cfg.kek));
+
+		ctx->flags |= KYRKA_FLAG_DEVICE_KEK;
+	}
+
+	if (src->flags & KYRKA_FLAG_SECRET_SET) {
+		kyrka_mask(src, src->cfg.secret, sizeof(src->cfg.secret));
+		nyfe_memcpy(ctx->cfg.secret, src->cfg.secret,
+		    sizeof(src->cfg.secret));
+		kyrka_mask(ctx, ctx->cfg.secret, sizeof(ctx->cfg.secret));
+		kyrka_mask(src, src->cfg.secret, sizeof(src->cfg.secret));
+
+		ctx->flags |= KYRKA_FLAG_SECRET_SET;
+	}
+
+	if (src->flags & KYRKA_FLAG_CATHEDRAL_SECRET) {
+		kyrka_mask(src, src->cathedral.secret,
+		    sizeof(src->cathedral.secret));
+		nyfe_memcpy(ctx->cathedral.secret, src->cathedral.secret,
+		    sizeof(src->cathedral.secret));
+		kyrka_mask(ctx, ctx->cathedral.secret,
+		    sizeof(ctx->cathedral.secret));
+		kyrka_mask(src, src->cathedral.secret,
+		    sizeof(src->cathedral.secret));
+
+		ctx->flags |= KYRKA_FLAG_CATHEDRAL_SECRET;
+	}
+
+	return (0);
+}
+
+/*
  * Load a shared secret inside of the given path into our context.
  */
 int
