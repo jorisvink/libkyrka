@@ -19,6 +19,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <time.h>
 #include <unistd.h>
 
 #include "libkyrka-int.h"
@@ -473,12 +474,14 @@ cathedral_ambry_recv(struct kyrka *ctx, struct kyrka_offer *op)
 static void
 cathedral_ambry_unwrap(struct kyrka *ctx, struct kyrka_ambry_offer *ambry)
 {
+	struct timespec			ts;
 	u_int8_t			len;
 	union kyrka_event		evt;
 	struct nyfe_kmac256		kdf;
 	struct kyrka_ambry_aad		aad;
 	struct kyrka_cipher		cipher;
 	u_int16_t			tunnel;
+	time_t				expires;
 	u_int64_t			flock_src, flock_dst;
 	u_int8_t			okm[KYRKA_AMBRY_KEY_LEN];
 	u_int8_t			nonce[KYRKA_NONCE_LENGTH];
@@ -539,6 +542,7 @@ cathedral_ambry_unwrap(struct kyrka *ctx, struct kyrka_ambry_offer *ambry)
 	aad.tunnel = tunnel;
 	aad.flock_src = flock_src;
 	aad.flock_dst = flock_dst;
+	aad.expires = ambry->expires;
 	aad.generation = ambry->generation;
 	nyfe_memcpy(aad.seed, ambry->seed, sizeof(ambry->seed));
 
@@ -557,15 +561,23 @@ cathedral_ambry_unwrap(struct kyrka *ctx, struct kyrka_ambry_offer *ambry)
 	if (kyrka_cipher_decrypt(&cipher) == -1)
 		return;
 
-	ctx->cathedral.ambry = be32toh(ambry->generation);
+	ambry->expires = be16toh(ambry->expires);
+	ambry->generation = be32toh(ambry->generation);
 
+	expires = KYRKA_AMBRY_AGE_EPOCH +
+	    (ambry->expires * KYRKA_AMBRY_AGE_SECONDS_PER_DAY);
+
+	(void)clock_gettime(CLOCK_REALTIME, &ts);
+	if (expires < ts.tv_sec)
+		return;
+
+	ctx->flags |= KYRKA_FLAG_SECRET_SET;
+	ctx->cathedral.ambry = ambry->generation;
 	nyfe_memcpy(ctx->cfg.secret, ambry->key, sizeof(ambry->key));
 	kyrka_mask(ctx, ctx->cfg.secret, sizeof(ctx->cfg.secret));
 
-	ctx->flags |= KYRKA_FLAG_SECRET_SET;
-
 	evt.type = KYRKA_EVENT_AMBRY_RECEIVED;
-	evt.ambry.generation = ctx->cathedral.ambry;
+	evt.ambry.generation = ambry->generation;
 
 	ctx->event(ctx, &evt, ctx->udata);
 }

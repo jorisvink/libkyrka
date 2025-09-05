@@ -162,11 +162,18 @@
 #define KYRKA_KDF_KEY_PURPOSE_TRAFFIC_TX	3
 #define KYRKA_KDF_KEY_PURPOSE_KEK_UNWRAP	4
 
+/* The epoch for when expiration time account began. */
+#define KYRKA_AMBRY_AGE_EPOCH			1697855580
+
+/* Much like TAI and the dark side we deal in absolutes. */
+#define KYRKA_AMBRY_AGE_SECONDS_PER_DAY		86400
+
 /*
  * The ambry AAD data.
  */
 struct kyrka_ambry_aad {
 	u_int16_t	tunnel;
+	u_int16_t	expires;
 	u_int64_t	flock_src;
 	u_int64_t	flock_dst;
 	u_int32_t	generation;
@@ -350,6 +357,7 @@ struct kyrka_key_offer {
 
 struct kyrka_ambry_offer {
 	u_int16_t		tunnel;
+	u_int16_t		expires;
 	u_int32_t		generation;
 	u_int8_t		seed[KYRKA_AMBRY_SEED_LEN];
 	u_int8_t		key[KYRKA_AMBRY_KEY_LEN];
