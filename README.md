@@ -28,6 +28,16 @@ variable at compile time with one of the following:
 - libsodium-aes-gcm (AES256-GCM via libsodium) **[default]**
 - mbedtls-aes-gcm (AES256-GCM via mbedtls 3.x its mbedcrypto lib)
 
+This repository also comes with a python module that can be built
+given that you have the right python3 dev stuff on your machine:
+
+```
+$ make python-mod
+```
+
+See the **examples/tunnel.py** or **examples/cathedral.py** example
+on how to use the python module.
+
 # Usage
 
 The API provides you with only the minimum required functions to
