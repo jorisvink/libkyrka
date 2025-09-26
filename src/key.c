@@ -189,6 +189,11 @@ key_offer_check(struct kyrka *ctx, u_int64_t now)
 			offer_now = 1;
 			reason = "SA packet limit";
 		}
+
+		if (ctx->flags & KYRKA_FLAG_AMBRY_NEGOTIATION) {
+			offer_now = 1;
+			reason = "new ambry";
+		}
 	} else {
 		offer_now = 1;
 		reason = "no keys";
@@ -196,6 +201,8 @@ key_offer_check(struct kyrka *ctx, u_int64_t now)
 
 	if (offer_now == 0)
 		return (0);
+
+	ctx->flags &= ~KYRKA_FLAG_AMBRY_NEGOTIATION;
 
 	if (ctx->offer.local.spi != 0)
 		return (0);

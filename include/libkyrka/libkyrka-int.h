@@ -477,6 +477,9 @@ struct kyrka_kex {
 /* If encapsulation is active. */
 #define KYRKA_FLAG_ENCAPSULATION	(1 << 4)
 
+/* If we need to renegotiate due to a new ambry. */
+#define KYRKA_FLAG_AMBRY_NEGOTIATION	(1 << 5)
+
 /* XXX */
 union kyrka_event;
 
