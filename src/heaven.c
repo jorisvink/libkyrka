@@ -95,6 +95,8 @@ kyrka_heaven_input(struct kyrka *ctx, const void *data, size_t len)
 	if ((pkt.length + overhead < pkt.length) ||
 	    (pkt.length + overhead > sizeof(pkt.data))) {
 		ctx->last_error = KYRKA_ERROR_INTERNAL;
+		kyrka_logmsg(ctx,
+		    "packet length + overhead too large to fit");
 		return (-1);
 	}
 

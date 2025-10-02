@@ -152,6 +152,7 @@ kyrka_key_load_from_path(struct kyrka *ctx, const char *path,
 	if (nyfe_file_read(fd, buf, buflen) != buflen) {
 		(void)close(fd);
 		ctx->last_error = KYRKA_ERROR_INTERNAL;
+		kyrka_logmsg(ctx, "failed to read key '%s'", path);
 		return (-1);
 	}
 
@@ -245,6 +246,8 @@ key_offer_create(struct kyrka *ctx, u_int64_t now)
 	    sizeof(ctx->offer.local.public)) == -1) {
 		nyfe_mem_zero(&ctx->offer, sizeof(ctx->offer));
 		ctx->last_error = KYRKA_ERROR_INTERNAL;
+		kyrka_logmsg(ctx,
+		    "failed to generate a local keypair for the key exchange");
 		return (-1);
 	}
 
@@ -253,6 +256,8 @@ key_offer_create(struct kyrka *ctx, u_int64_t now)
 	    sizeof(ctx->offer.remote.public)) == -1) {
 		nyfe_mem_zero(&ctx->offer, sizeof(ctx->offer));
 		ctx->last_error = KYRKA_ERROR_INTERNAL;
+		kyrka_logmsg(ctx,
+		    "failed to generate a remote keypair for the key exchange");
 		return (-1);
 	}
 

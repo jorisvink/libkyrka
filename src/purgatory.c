@@ -16,6 +16,7 @@
 
 #include <sys/types.h>
 
+#include <inttypes.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -24,7 +25,7 @@
 
 static int	purgatory_decapsulate(struct kyrka *,
 		    struct kyrka_packet *);
-static int	purgatory_arwin_check(struct kyrka_sa *,
+static int	purgatory_arwin_check(struct kyrka *,
 		    const struct kyrka_proto_hdr *);
 static void	purgatory_arwin_update(struct kyrka_sa *,
 		    const struct kyrka_proto_hdr *);
@@ -145,7 +146,7 @@ kyrka_purgatory_input(struct kyrka *ctx, const void *data, size_t len)
 	if ((pn & 0xffffffff) != seq)
 		return (0);
 
-	if (purgatory_arwin_check(&ctx->rx, hdr) == -1)
+	if (purgatory_arwin_check(ctx, hdr) == -1)
 		return (0);
 
 	memcpy(&aad, hdr, sizeof(*hdr));
@@ -199,13 +200,15 @@ kyrka_purgatory_input(struct kyrka *ctx, const void *data, size_t len)
  * Check if the given packet was too old, or already seen.
  */
 static int
-purgatory_arwin_check(struct kyrka_sa *sa, const struct kyrka_proto_hdr *hdr)
+purgatory_arwin_check(struct kyrka *ctx, const struct kyrka_proto_hdr *hdr)
 {
-	u_int64_t	bit, pn;
+	struct kyrka_sa		*sa;
+	u_int64_t		bit, pn;
 
-	PRECOND(sa != NULL);
+	PRECOND(ctx != NULL);
 	PRECOND(hdr != NULL);
 
+	sa = &ctx->rx;
 	pn = be64toh(hdr->pn);
 
 	if (pn > sa->seqnr)
@@ -213,10 +216,16 @@ purgatory_arwin_check(struct kyrka_sa *sa, const struct kyrka_proto_hdr *hdr)
 
 	if (pn > 0 && KYRKA_ARWIN_SIZE > sa->seqnr - pn) {
 		bit = (KYRKA_ARWIN_SIZE - 1) - (sa->seqnr - pn);
-		if (sa->bitmap & ((u_int64_t)1 << bit))
+		if (sa->bitmap & ((u_int64_t)1 << bit)) {
+			kyrka_logmsg(ctx,
+			    "packet seq=%" PRIx64 " already seen", pn);
 			return (-1);
+		}
+
 		return (0);
 	}
+
+	kyrka_logmsg(ctx, "packet seq=%" PRIx64 " too old", pn);
 
 	return (-1);
 }

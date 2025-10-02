@@ -291,6 +291,8 @@ cathedral_send_offer(struct kyrka *ctx, u_int64_t magic)
 		break;
 	default:
 		ctx->last_error = KYRKA_ERROR_INTERNAL;
+		kyrka_logmsg(ctx,
+		    "failed to send offer to cathedral, invalid magic");
 		return (-1);
 	}
 
@@ -461,8 +463,11 @@ cathedral_ambry_recv(struct kyrka *ctx, struct kyrka_offer *op)
 
 	op->hdr.spi = be32toh(op->hdr.spi);
 
-	if (op->hdr.spi != ctx->cathedral.identity || tunnel != ctx->cfg.spi)
+	if (op->hdr.spi != ctx->cathedral.identity || tunnel != ctx->cfg.spi) {
+		kyrka_logmsg(ctx,
+		    "got an ambry not ment for us (%04x)", tunnel);
 		return;
+	}
 
 	cathedral_ambry_unwrap(ctx, &data->offer.ambry);
 }
@@ -558,8 +563,10 @@ cathedral_ambry_unwrap(struct kyrka *ctx, struct kyrka_ambry_offer *ambry)
 	cipher.tag = &ambry->tag[0];
 	cipher.data_len = sizeof(ambry->key);
 
-	if (kyrka_cipher_decrypt(&cipher) == -1)
+	if (kyrka_cipher_decrypt(&cipher) == -1) {
+		kyrka_logmsg(ctx, "ambry integrity check failed");
 		return;
+	}
 
 	ambry->expires = be16toh(ambry->expires);
 	ambry->generation = be32toh(ambry->generation);
@@ -568,8 +575,11 @@ cathedral_ambry_unwrap(struct kyrka *ctx, struct kyrka_ambry_offer *ambry)
 	    (ambry->expires * KYRKA_AMBRY_AGE_SECONDS_PER_DAY);
 
 	(void)clock_gettime(CLOCK_REALTIME, &ts);
-	if (expires < ts.tv_sec)
+	if (expires < ts.tv_sec) {
+		kyrka_logmsg(ctx, "ambry generation 0x%08x is expired",
+		    ambry->generation);
 		return;
+	}
 
 	ctx->flags |= KYRKA_FLAG_SECRET_SET;
 	ctx->flags |= KYRKA_FLAG_AMBRY_NEGOTIATION;
