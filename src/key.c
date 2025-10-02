@@ -603,6 +603,7 @@ key_exchange_finalize(struct kyrka *ctx, struct kyrka_offer *op, u_int8_t dir)
 	if (dir == KYRKA_KEY_DIRECTION_RX) {
 		ctx->rx.pkt = 0;
 		ctx->rx.seqnr = 1;
+		ctx->rx.bitmap = 0;
 		ctx->rx.salt = ctx->offer.local.salt;
 		ctx->rx.spi = ctx->offer.local.spi;
 		if ((next = kyrka_cipher_setup(okm, sizeof(okm))) == NULL)
