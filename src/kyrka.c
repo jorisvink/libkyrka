@@ -433,6 +433,39 @@ kyrka_mask(KYRKA *ctx, u_int8_t *secret, size_t len)
 }
 
 /*
+ * Call the user-supplied callback (if any) with the given log
+ * message as an KYRKA_EVENT_LOGMSG.
+ */
+void
+kyrka_logmsg(KYRKA *ctx, const char *fmt, ...)
+{
+	int			len;
+	va_list			args;
+	union kyrka_event	evt;
+	char			buf[2048], *msg;
+
+	PRECOND(ctx != NULL);
+	PRECOND(fmt != NULL);
+
+	if (ctx->event == NULL)
+		return;
+
+	va_start(args, fmt);
+	len = vsnprintf(buf, sizeof(buf), fmt, args);
+	va_end(args);
+
+	if (len == -1 || (size_t)len >= sizeof(buf))
+		msg = "Failed to create a log message";
+	else
+		msg = buf;
+
+	evt.type = KYRKA_EVENT_LOGMSG;
+	evt.logmsg.log = msg;
+
+	ctx->event(ctx, &evt, ctx->udata);
+}
+
+/*
  * An unrecoverable error occurred, we will perform an emergency erase
  * and call the application specified callback (if any).
  */

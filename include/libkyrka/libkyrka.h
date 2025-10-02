@@ -75,6 +75,7 @@ extern "C" {
 #define KYRKA_EVENT_LITURGY_RECEIVED		6
 #define KYRKA_EVENT_REMEMBRANCE_RECEIVED	7
 #define KYRKA_EVENT_ENCAP_INFO			8
+#define KYRKA_EVENT_LOGMSG			9
 
 struct kyrka_event_encap_info {
 	u_int32_t			type;
@@ -86,6 +87,11 @@ struct kyrka_event_keys_info {
 	u_int32_t			tx_spi;
 	u_int32_t			rx_spi;
 	u_int64_t			peer_id;
+};
+
+struct kyrka_event_logmsg {
+	u_int32_t			type;
+	const char			*log;
 };
 
 struct kyrka_event_exchange_info {
@@ -121,6 +127,7 @@ union kyrka_event {
 	struct kyrka_event_encap_info		encap;
 	struct kyrka_event_peer			peer;
 	struct kyrka_event_ambry		ambry;
+	struct kyrka_event_logmsg		logmsg;
 	struct kyrka_event_liturgy		liturgy;
 	struct kyrka_event_exchange_info	exchange;
 	struct kyrka_event_remembrance		remembrance;
