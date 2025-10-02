@@ -578,8 +578,9 @@ cathedral_ambry_unwrap(struct kyrka *ctx, struct kyrka_ambry_offer *ambry)
 	nyfe_memcpy(ctx->cfg.secret, ambry->key, sizeof(ambry->key));
 	kyrka_mask(ctx, ctx->cfg.secret, sizeof(ctx->cfg.secret));
 
-	evt.type = KYRKA_EVENT_AMBRY_RECEIVED;
-	evt.ambry.generation = ambry->generation;
-
-	ctx->event(ctx, &evt, ctx->udata);
+	if (ctx->event != NULL) {
+		evt.type = KYRKA_EVENT_AMBRY_RECEIVED;
+		evt.ambry.generation = ambry->generation;
+		ctx->event(ctx, &evt, ctx->udata);
+	}
 }
