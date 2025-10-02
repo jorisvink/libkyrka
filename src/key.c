@@ -604,8 +604,8 @@ key_exchange_finalize(struct kyrka *ctx, struct kyrka_offer *op, u_int8_t dir)
 		ctx->rx.pkt = 0;
 		ctx->rx.seqnr = 1;
 		ctx->rx.bitmap = 0;
-		ctx->rx.salt = ctx->offer.local.salt;
 		ctx->rx.spi = ctx->offer.local.spi;
+		ctx->rx.salt = ctx->offer.local.salt;
 		if ((next = kyrka_cipher_setup(okm, sizeof(okm))) == NULL)
 			return;
 		if (ctx->rx.cipher != NULL)
@@ -614,8 +614,8 @@ key_exchange_finalize(struct kyrka *ctx, struct kyrka_offer *op, u_int8_t dir)
 	} else {
 		ctx->tx.pkt = 0;
 		ctx->tx.seqnr = 1;
-		ctx->tx.salt = ctx->offer.remote.salt;
 		ctx->tx.spi = ctx->offer.remote.spi;
+		ctx->tx.salt = ctx->offer.remote.salt;
 		if ((next = kyrka_cipher_setup(okm, sizeof(okm))) == NULL)
 			return;
 		if (ctx->tx.cipher != NULL)
