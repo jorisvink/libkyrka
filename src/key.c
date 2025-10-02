@@ -405,6 +405,11 @@ key_exchange(struct kyrka *ctx, struct kyrka_offer *op)
 	exchange = &op->data.offer.exchange;
 	exchange->spi = be32toh(exchange->spi);
 
+	if (exchange->spi == 0) {
+		kyrka_logmsg(ctx, "peer sent invalid spi of 0x00");
+		return;
+	}
+
 	switch (exchange->state) {
 	case KYRKA_OFFER_STATE_KEM_PK_FRAGMENT:
 		key_exchange_encapsulate(ctx, op);
@@ -413,6 +418,7 @@ key_exchange(struct kyrka *ctx, struct kyrka_offer *op)
 		key_exchange_decapsulate(ctx, op);
 		break;
 	default:
+		kyrka_logmsg(ctx, "ignoring unknown offer packet");
 		break;
 	}
 
