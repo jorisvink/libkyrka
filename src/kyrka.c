@@ -21,6 +21,7 @@
 #include <fcntl.h>
 #include <stdarg.h>
 #include <stdio.h>
+#include <stdint.h>
 #include <stdlib.h>
 #include <unistd.h>
 
@@ -399,7 +400,7 @@ kyrka_file_open(struct kyrka *ctx, const char *path)
 void
 kyrka_mask(KYRKA *ctx, u_int8_t *secret, size_t len)
 {
-	u_int64_t		ptr;
+	uintptr_t		ptr;
 	struct nyfe_kmac256	kdf;
 	struct nyfe_agelas	cipher;
 	u_int8_t		okm[64];
@@ -408,7 +409,7 @@ kyrka_mask(KYRKA *ctx, u_int8_t *secret, size_t len)
 	PRECOND(secret != NULL);
 	PRECOND(len == KYRKA_KEY_LENGTH);
 
-	ptr = (u_int64_t)secret;
+	ptr = (uintptr_t)secret;
 
 	nyfe_zeroize_register(okm, sizeof(okm));
 	nyfe_zeroize_register(&kdf, sizeof(kdf));
