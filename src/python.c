@@ -76,6 +76,7 @@ static PyObject		*pykyrka_heaven_input(PyObject *, PyObject *);
 static PyObject		*pykyrka_purgatory_input(PyObject *, PyObject *);
 
 static PyObject		*pykyrka_cathedral_notify(PyObject *, PyObject *);
+static PyObject		*pykyrka_cathedral_cosk_load(PyObject *, PyObject *);
 static PyObject		*pykyrka_cathedral_secret_load(PyObject *, PyObject *);
 static PyObject		*pykyrka_cathedral_nat_detection(PyObject *,
 			    PyObject *);
@@ -131,6 +132,8 @@ static PyMethodDef pykyrka_methods[] = {
 	METHOD("purgatory_callback", pykyrka_purgatory_callback, METH_VARARGS),
 	METHOD("cathedral_secret_load",
 	    pykyrka_cathedral_secret_load, METH_VARARGS),
+	METHOD("cathedral_cosk_load",
+	    pykyrka_cathedral_cosk_load, METH_VARARGS),
 	METHOD("cathedral_configure",
 	    pykyrka_cathedral_configure, METH_VARARGS | METH_KEYWORDS),
 	METHOD("cathedral_nat_detection", pykyrka_cathedral_nat_detection,
@@ -295,6 +298,11 @@ kyrka_cb_event(KYRKA *kctx, union kyrka_event *evt, void *udata)
 		break;
 	case KYRKA_EVENT_KEYS_ERASED:
 		if (python_dict_add_string(info, "reason", "keys erased") == -1)
+			goto cleanup;
+		break;
+	case KYRKA_EVENT_LOGMSG:
+		if (python_dict_add_string(info,
+		    "logmsg", evt->logmsg.log) == -1)
 			goto cleanup;
 		break;
 	case KYRKA_EVENT_EXCHANGE_INFO:
@@ -575,6 +583,33 @@ pykyrka_secret_load_path(PyObject *self, PyObject *args)
 }
 
 /*
+ * Entry from python for an allocated context cathedral_cosk_load().
+ */
+static PyObject *
+pykyrka_cathedral_cosk_load(PyObject *self, PyObject *args)
+{
+	Py_buffer		buf;
+	struct pykyrka		*ctx;
+
+	PRECOND(self != NULL);
+	PRECOND(args != NULL);
+
+	if (!PyArg_ParseTuple(args, "y*", &buf))
+		return (NULL);
+
+	ctx = (struct pykyrka *)self;
+
+	if (kyrka_cathedral_cosk_load(ctx->kyrka, buf.buf, buf.len) == -1) {
+		PyBuffer_Release(&buf);
+		python_kyrka_exception(kyrka_last_error(ctx->kyrka));
+		return (NULL);
+	}
+
+	PyBuffer_Release(&buf);
+	Py_RETURN_TRUE;
+}
+
+/*
  * Entry from python for an allocated context cathedral_secret_load().
  */
 static PyObject *
@@ -733,6 +768,7 @@ pykyrka_cathedral_configure(PyObject *self, PyObject *args, PyObject *kwargs)
 	memset(&cfg, 0, sizeof(cfg));
 
 	cfg.kek = python_string_from_dict(kwargs, "kek");
+	cfg.cosk = python_string_from_dict(kwargs, "cosk");
 	cfg.secret = python_string_from_dict(kwargs, "secret");
 
 	if (python_uint64_from_dict(kwargs, "flock_src", &cfg.flock_src) == -1)

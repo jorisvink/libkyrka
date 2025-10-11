@@ -144,7 +144,8 @@ kyrka_key_load_from_path(struct kyrka *ctx, const char *path,
 	PRECOND(ctx != NULL);
 	PRECOND(path != NULL);
 	PRECOND(buf != NULL);
-	PRECOND(buflen == KYRKA_KEY_LENGTH);
+	PRECOND(buflen == KYRKA_KEY_LENGTH ||
+	    buflen == KYRKA_ED25519_SIGN_SECRET_LENGTH);
 
 	if ((fd = kyrka_file_open(ctx, path)) == -1)
 		return (-1);

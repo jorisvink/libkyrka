@@ -94,6 +94,14 @@ kyrka_cathedral_config(struct kyrka *ctx, struct kyrka_cathedral_cfg *cfg)
 		ctx->flags |= KYRKA_FLAG_DEVICE_KEK;
 	}
 
+	if (cfg->cosk != NULL) {
+		if (kyrka_key_load_from_path(ctx, cfg->cosk,
+		    ctx->cathedral.sk, sizeof(ctx->cathedral.sk)) == -1)
+			return (-1);
+
+		ctx->flags |= KYRKA_FLAG_CATHEDRAL_SIGNING_KEY;
+	}
+
 	ctx->flags |= KYRKA_FLAG_CATHEDRAL_CONFIG;
 
 	return (0);
@@ -120,6 +128,11 @@ kyrka_cathedral_notify(struct kyrka *ctx)
 		return (-1);
 	}
 
+	if (!(ctx->flags & KYRKA_FLAG_CATHEDRAL_SIGNING_KEY)) {
+		ctx->last_error = KYRKA_ERROR_NO_COSK;
+		return (-1);
+	}
+
 	return (cathedral_send_offer(ctx, KYRKA_CATHEDRAL_MAGIC));
 }
 
@@ -141,6 +154,11 @@ kyrka_cathedral_nat_detection(struct kyrka *ctx)
 
 	if (!(ctx->flags & KYRKA_FLAG_CATHEDRAL_SECRET)) {
 		ctx->last_error = KYRKA_ERROR_NO_SECRET;
+		return (-1);
+	}
+
+	if (!(ctx->flags & KYRKA_FLAG_CATHEDRAL_SIGNING_KEY)) {
+		ctx->last_error = KYRKA_ERROR_NO_COSK;
 		return (-1);
 	}
 
@@ -273,6 +291,7 @@ cathedral_send_offer(struct kyrka *ctx, u_int64_t magic)
 	PRECOND(ctx != NULL);
 	PRECOND(ctx->flags & KYRKA_FLAG_CATHEDRAL_CONFIG);
 	PRECOND(ctx->flags & KYRKA_FLAG_CATHEDRAL_SECRET);
+	PRECOND(ctx->flags & KYRKA_FLAG_CATHEDRAL_SIGNING_KEY);
 	PRECOND(ctx->cathedral.ifc.send != NULL);
 	PRECOND(magic == KYRKA_CATHEDRAL_MAGIC ||
 	    magic == KYRKA_CATHEDRAL_NAT_MAGIC ||
@@ -340,7 +359,8 @@ cathedral_send_offer(struct kyrka *ctx, u_int64_t magic)
 	    op->hdr.seed, sizeof(op->hdr.seed), ctx->cathedral.flock_src, 0);
 	kyrka_mask(ctx, ctx->cathedral.secret, sizeof(ctx->cathedral.secret));
 
-	if (kyrka_offer_encrypt(&okm, op) == -1) {
+	if (kyrka_offer_sign(ctx, op) == -1 ||
+	    kyrka_offer_encrypt(&okm, op) == -1) {
 		nyfe_zeroize(&okm, sizeof(okm));
 		return (-1);
 	}

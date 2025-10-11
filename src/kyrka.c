@@ -73,7 +73,9 @@ kyrka_ctx_alloc(void (*event)(struct kyrka *, union kyrka_event *, void *),
 {
 	struct kyrka		*ctx;
 
-	if (kyrka_cipher_init() == -1)
+	if (kyrka_cipher_init() == -1 ||
+	    kyrka_asymmetry_init() == -1 ||
+	    kyrka_signature_init() == -1)
 		return (NULL);
 
 	if ((ctx = calloc(1, sizeof(*ctx))) == NULL)
@@ -90,8 +92,10 @@ kyrka_ctx_alloc(void (*event)(struct kyrka *, union kyrka_event *, void *),
 
 	kyrka_random_bytes(ctx->cfg.kek, sizeof(ctx->cfg.kek));
 	kyrka_random_bytes(ctx->cfg.secret, sizeof(ctx->cfg.secret));
+
 	kyrka_random_bytes(ctx->cathedral.secret,
 	    sizeof(ctx->cathedral.secret));
+	kyrka_random_bytes(ctx->cathedral.sk, sizeof(ctx->cathedral.sk));
 
 	ctx->udata = udata;
 	ctx->event = event;
@@ -156,6 +160,17 @@ kyrka_key_material_copy(KYRKA *ctx, KYRKA *src)
 		    sizeof(src->cathedral.secret));
 
 		ctx->flags |= KYRKA_FLAG_CATHEDRAL_SECRET;
+	}
+
+	if (src->flags & KYRKA_FLAG_CATHEDRAL_SIGNING_KEY) {
+		kyrka_mask(src, ctx->cathedral.sk,
+		    sizeof(src->cathedral.sk));
+		nyfe_memcpy(ctx->cathedral.sk, src->cathedral.sk,
+		    sizeof(src->cathedral.sk));
+		kyrka_mask(src, ctx->cathedral.sk,
+		    sizeof(src->cathedral.sk));
+
+		ctx->flags |= KYRKA_FLAG_CATHEDRAL_SIGNING_KEY;
 	}
 
 	return (0);
@@ -231,6 +246,31 @@ kyrka_cathedral_secret_load(KYRKA *ctx, const void *secret, size_t len)
 	kyrka_mask(ctx, ctx->cathedral.secret, sizeof(ctx->cathedral.secret));
 
 	ctx->flags |= KYRKA_FLAG_CATHEDRAL_SECRET;
+
+	return (0);
+}
+
+/*
+ * Sets the cathedral offer signing key directly by copying in the given key.
+ *
+ * Only call this if you did not specify the cosk in the kyrka_cathedral_cfg
+ * data structure when calling kyrka_cathedral_config().
+ */
+int
+kyrka_cathedral_cosk_load(KYRKA *ctx, const void *sk, size_t len)
+{
+	if (ctx == NULL)
+		return (-1);
+
+	if (sk == NULL || len != KYRKA_ED25519_SIGN_SECRET_LENGTH) {
+		ctx->last_error = KYRKA_ERROR_PARAMETER;
+		return (-1);
+	}
+
+	nyfe_memcpy(ctx->cathedral.sk, sk, len);
+	kyrka_mask(ctx, ctx->cathedral.sk, sizeof(ctx->cathedral.sk));
+
+	ctx->flags |= KYRKA_FLAG_CATHEDRAL_SIGNING_KEY;
 
 	return (0);
 }
@@ -407,7 +447,8 @@ kyrka_mask(KYRKA *ctx, u_int8_t *secret, size_t len)
 
 	PRECOND(ctx != NULL);
 	PRECOND(secret != NULL);
-	PRECOND(len == KYRKA_KEY_LENGTH);
+	PRECOND(len == KYRKA_KEY_LENGTH ||
+	    len == KYRKA_ED25519_SIGN_SECRET_LENGTH);
 
 	ptr = (uintptr_t)secret;
 

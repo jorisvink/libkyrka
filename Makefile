@@ -17,11 +17,13 @@ RANDOM?=nyfe
 KEM?=mlkem1024-ref
 CIPHER?=libsodium-aes-gcm
 ASYMMETRY?=libsodium-x25519
+SIGNATURE?=libsodium-ed25519
 
 KEM_MK_PATH?=$(TOPDIR)/mk/kem/$(KEM).mk
 RANDOM_MK_PATH?=$(TOPDIR)/mk/random/$(RANDOM).mk
 CIPHER_MK_PATH?=$(TOPDIR)/mk/ciphers/$(CIPHER).mk
 ASYMMETRY_MK_PATH?=$(TOPDIR)/mk/asymmetry/$(ASYMMETRY).mk
+SIGNATURE_MK_PATH?=$(TOPDIR)/mk/signature/$(SIGNATURE).mk
 
 CFLAGS+=-std=c99 -pedantic -Wall -Werror -Wstrict-prototypes
 CFLAGS+=-Wmissing-prototypes -Wmissing-declarations -Wshadow
@@ -70,6 +72,7 @@ include $(KEM_MK_PATH)
 include $(CIPHER_MK_PATH)
 include $(RANDOM_MK_PATH)
 include $(ASYMMETRY_MK_PATH)
+include $(SIGNATURE_MK_PATH)
 
 LIBNYFE_OBJS=		nyfe/$(OBJDIR)/sha3.o \
 			nyfe/$(OBJDIR)/kmac256.o \

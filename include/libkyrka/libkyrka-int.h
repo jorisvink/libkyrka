@@ -144,6 +144,15 @@
 #define KYRKA_MLKEM_1024_CIPHERTEXTBYTES	\
     KYRKA_MLKEM_1024_PUBLICKEYBYTES
 
+/* Length of an ed25519 signature. */
+#define KYRKA_ED25519_SIGN_LENGTH		64
+
+/* Length of an ed25519 secret key. */
+#define KYRKA_ED25519_SIGN_SECRET_LENGTH	64
+
+/* Length of an ed25519 public key. */
+#define KYRKA_ED25519_SIGN_PUBLIC_LENGTH	32
+
 /* Shall we send PK during key offering. */
 #define KYRKA_OFFER_INCLUDE_KEM_PK		(1 << 0)
 
@@ -417,6 +426,7 @@ struct kyrka_offer_data {
 struct kyrka_offer {
 	struct kyrka_offer_hdr		hdr;
 	struct kyrka_offer_data		data;
+	u_int8_t			sig[KYRKA_ED25519_SIGN_LENGTH];
 	u_int8_t			tag[KYRKA_TAG_LENGTH];
 } __attribute__((packed));
 
@@ -463,22 +473,25 @@ struct kyrka_kex {
 };
 
 /* If a secret has been loaded into the context. */
-#define KYRKA_FLAG_SECRET_SET		(1 << 0)
+#define KYRKA_FLAG_SECRET_SET			(1 << 0)
 
 /* If the cathedral settings were configured. */
-#define KYRKA_FLAG_CATHEDRAL_CONFIG	(1 << 1)
+#define KYRKA_FLAG_CATHEDRAL_CONFIG		(1 << 1)
 
 /* If a cathedral secret was loaded into the context. */
-#define KYRKA_FLAG_CATHEDRAL_SECRET	(1 << 2)
+#define KYRKA_FLAG_CATHEDRAL_SECRET		(1 << 2)
 
 /* If a device KEK was loaded into the context. */
-#define KYRKA_FLAG_DEVICE_KEK		(1 << 3)
+#define KYRKA_FLAG_DEVICE_KEK			(1 << 3)
 
 /* If encapsulation is active. */
-#define KYRKA_FLAG_ENCAPSULATION	(1 << 4)
+#define KYRKA_FLAG_ENCAPSULATION		(1 << 4)
 
 /* If we need to renegotiate due to a new ambry. */
-#define KYRKA_FLAG_AMBRY_NEGOTIATION	(1 << 5)
+#define KYRKA_FLAG_AMBRY_NEGOTIATION		(1 << 5)
+
+/* If a cathedral offer signing key (COSK) was set. */
+#define KYRKA_FLAG_CATHEDRAL_SIGNING_KEY	(1 << 6)
 
 /* XXX */
 union kyrka_event;
@@ -569,6 +582,7 @@ struct kyrka {
 		u_int32_t		liturgy_flags;
 		u_int8_t		secret[KYRKA_KEY_LENGTH];
 		u_int8_t		peers[KYRKA_PEERS_PER_FLOCK];
+		u_int8_t		sk[KYRKA_ED25519_SIGN_SECRET_LENGTH];
 	} cathedral;
 };
 
@@ -590,8 +604,14 @@ void	kyrka_mlkem1024_encapsulate(struct kyrka_mlkem1024 *);
 void	kyrka_mlkem1024_decapsulate(struct kyrka_mlkem1024 *);
 
 /* The asymmetry API. */
+int	kyrka_asymmetry_init(void);
 int	kyrka_asymmetry_keygen(u_int8_t *, size_t, u_int8_t *, size_t);
 int	kyrka_asymmetry_derive(struct kyrka_kex *, u_int8_t *, size_t);
+
+/* The signature API. */
+int	kyrka_signature_init(void);
+int	kyrka_signature_create(struct kyrka *,
+	    const void *, size_t, u_int8_t *, size_t);
 
 /* The random API. */
 void	kyrka_random_init(void);
@@ -629,6 +649,12 @@ void	kyrka_logmsg(KYRKA *, const char *, ...);
 int	kyrka_file_open(struct kyrka *, const char *);
 
 /* src/offer.c */
+void	kyrka_offer_nonce(u_int8_t *, size_t);
+void	kyrka_offer_tfc(struct kyrka_packet *);
+int	kyrka_offer_sign(struct kyrka *, struct kyrka_offer *);
+int	kyrka_offer_encrypt(struct kyrka_key *, struct kyrka_offer *);
+int	kyrka_offer_decrypt(struct kyrka_key *, struct kyrka_offer *, int);
+
 struct kyrka_offer	*kyrka_offer_init(struct kyrka_packet *,
 			    u_int32_t, u_int64_t, u_int8_t);
 
@@ -640,10 +666,5 @@ void	*kyrka_packet_tail(struct kyrka_packet *);
 void	kyrka_packet_encapsulation_reset(struct kyrka *);
 int	kyrka_packet_crypto_checklen(struct kyrka_packet *);
 void	*kyrka_packet_tx_finalize(struct kyrka *, struct kyrka_packet *);
-
-void	kyrka_offer_nonce(u_int8_t *, size_t);
-void	kyrka_offer_tfc(struct kyrka_packet *);
-int	kyrka_offer_encrypt(struct kyrka_key *, struct kyrka_offer *);
-int	kyrka_offer_decrypt(struct kyrka_key *, struct kyrka_offer *, int);
 
 #endif

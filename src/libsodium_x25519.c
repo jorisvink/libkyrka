@@ -21,6 +21,15 @@
 #include "libkyrka-int.h"
 
 /*
+ * Perform any one-time asymmetry initialization.
+ */
+int
+kyrka_asymmetry_init(void)
+{
+	return (sodium_init());
+}
+
+/*
  * Generate a new x25519 private key and derive its public key from it.
  */
 int

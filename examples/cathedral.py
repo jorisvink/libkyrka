@@ -109,6 +109,7 @@ ctx.cathedral_configure(
     send=cathedral_send,
     kek=f"{cfgdir}/kek-0x{kek}",
     secret=f"{cfgdir}/id-{cs}",
+    cosk=f"{cfgdir}/cosk-{cs}",
     flock_src=int(flock, 16),
     flock_dst=int(flock, 16),
     group=0,
@@ -122,6 +123,7 @@ sel = selectors.DefaultSelector()
 sel.register(fd, selectors.EVENT_READ, packet_recv)
 
 last = 0
+last_key = 0
 
 while True:
     events = sel.select(1)
@@ -129,17 +131,20 @@ while True:
         callback = key.data
         callback(ctx, key.fileobj)
 
-    try:
-        ctx.key_manage()
-    except Exception as e:
-        print(f"key manage {e}")
-
-    try:
-        ctx.cathedral_notify()
-    except Exception as e:
-        print(f"cathedral notify {e}")
-
     now = time.time()
+
+    if now - last_key >= 1:
+        last_key = now
+
+        try:
+            ctx.key_manage()
+        except Exception as e:
+            print(f"key manage {e}")
+
+        try:
+            ctx.cathedral_notify()
+        except Exception as e:
+            print(f"cathedral notify {e}")
 
     if established and now - last >= 5:
         last = now

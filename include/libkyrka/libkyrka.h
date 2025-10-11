@@ -62,6 +62,7 @@ extern "C" {
 #define KYRKA_ERROR_NO_CONFIG		12
 #define KYRKA_ERROR_CATHEDRAL_CONFIG	13
 #define KYRKA_ERROR_PACKET_ERROR	14
+#define KYRKA_ERROR_NO_COSK		15
 
 /*
  * Events that can occur and can be seen if an event callback was
@@ -140,6 +141,7 @@ struct kyrka_cathedral_cfg {
 	void		*udata;
 
 	const char	*kek;
+	const char	*cosk;
 	const char	*secret;
 
 	u_int64_t	flock_src;
@@ -178,6 +180,7 @@ int	kyrka_secret_load_path(KYRKA *, const char *);
 int	kyrka_secret_load(KYRKA *, const void *, size_t);
 int	kyrka_encap_key_load(KYRKA *, const void *, size_t);
 int	kyrka_device_kek_load(KYRKA *, const void *, size_t);
+int	kyrka_cathedral_cosk_load(KYRKA *, const void *, size_t);
 int	kyrka_cathedral_secret_load(KYRKA *, const void *, size_t);
 
 int	kyrka_heaven_ifc(KYRKA *,
