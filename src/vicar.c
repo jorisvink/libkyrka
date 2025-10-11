@@ -71,6 +71,7 @@ struct vicar {
 		u_int16_t	port;
 		u_int16_t	tunnel;
 		u_int8_t	kek[KYRKA_KEY_LENGTH];
+		u_int8_t	cosk[KYRKA_ED25519_SIGN_SECRET_LENGTH];
 		u_int8_t	secret[KYRKA_KEY_LENGTH];
 	} data;
 
@@ -146,6 +147,12 @@ kyrka_vicar_load(KYRKA *ctx, const char *path, const char *passphrase,
 
 	if (kyrka_cathedral_secret_load(ctx,
 	    conf.data.secret, sizeof(conf.data.secret)) == -1) {
+		nyfe_zeroize(&conf, sizeof(conf));
+		return (-1);
+	}
+
+	if (kyrka_cathedral_cosk_load(ctx,
+	    conf.data.cosk, sizeof(conf.data.cosk)) == -1) {
 		nyfe_zeroize(&conf, sizeof(conf));
 		return (-1);
 	}
