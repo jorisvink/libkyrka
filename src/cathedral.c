@@ -247,9 +247,20 @@ kyrka_cathedral_decrypt(struct kyrka *ctx, const void *data, size_t len)
 	if (kyrka_offer_decrypt(&okm, &offer, CATHEDRAL_OFFER_VALID) == -1)
 		goto cleanup;
 
+	offer.hdr.spi = be32toh(offer.hdr.spi);
+	if (offer.hdr.spi != ctx->cathedral.identity) {
+		kyrka_logmsg(ctx,
+		    "got a cathedral packet (%02x) not ment for us (%08x)",
+		    offer.data.type, offer.hdr.spi);
+		goto cleanup;
+	}
+
 	switch (offer.data.type) {
 	case KYRKA_OFFER_TYPE_AMBRY:
+		/* We return an error here if the device KEK is missing. */
 		if (!(ctx->flags & KYRKA_FLAG_DEVICE_KEK)) {
+			nyfe_zeroize(&okm, sizeof(okm));
+			nyfe_zeroize(&offer, sizeof(offer));
 			ctx->last_error = KYRKA_ERROR_CATHEDRAL_CONFIG;
 			return (-1);
 		}
@@ -481,9 +492,7 @@ cathedral_ambry_recv(struct kyrka *ctx, struct kyrka_offer *op)
 	data = &op->data;
 	tunnel = be16toh(data->offer.ambry.tunnel);
 
-	op->hdr.spi = be32toh(op->hdr.spi);
-
-	if (op->hdr.spi != ctx->cathedral.identity || tunnel != ctx->cfg.spi) {
+	if (tunnel != ctx->cfg.spi) {
 		kyrka_logmsg(ctx,
 		    "got an ambry not ment for us (%04x)", tunnel);
 		return;
