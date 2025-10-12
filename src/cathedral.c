@@ -24,7 +24,8 @@
 
 #include "libkyrka-int.h"
 
-#define CATHEDRAL_OFFER_VALID		5
+/* The half-time a cathedral offer is valid. */
+#define CATHEDRAL_OFFER_VALID		10
 
 static int	cathedral_send_offer(struct kyrka *, u_int64_t);
 static void	cathedral_p2p_recv(struct kyrka *, struct kyrka_offer *);
