@@ -483,6 +483,7 @@ cathedral_ambry_recv(struct kyrka *ctx, struct kyrka_offer *op)
 {
 	struct kyrka_offer_data		*data;
 	u_int16_t			tunnel;
+	u_int32_t			generation;
 
 	PRECOND(ctx != NULL);
 	PRECOND(op != NULL);
@@ -492,10 +493,18 @@ cathedral_ambry_recv(struct kyrka *ctx, struct kyrka_offer *op)
 
 	data = &op->data;
 	tunnel = be16toh(data->offer.ambry.tunnel);
+	generation = be32toh(data->offer.ambry.generation);
 
 	if (tunnel != ctx->cfg.spi) {
 		kyrka_logmsg(ctx,
 		    "got an ambry not ment for us (%04x)", tunnel);
+		return;
+	}
+
+	if (generation == ctx->cathedral.ambry) {
+		kyrka_logmsg(ctx,
+		    "duplicate ambry generation %08x from cathedral",
+		    ctx->cathedral.ambry);
 		return;
 	}
 
