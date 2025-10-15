@@ -14,3 +14,5 @@ The coverage HTML report can be found under the **coverage_html** directory.
 
 The framework code is built into a library that is linked into each
 of the invididual tests that reside under the **tests** directory.
+
+Note that the tests aren't fleshed out yet in full.
