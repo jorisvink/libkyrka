@@ -602,7 +602,7 @@ cathedral_ambry_unwrap(struct kyrka *ctx, struct kyrka_ambry_offer *ambry)
 	ambry->generation = be32toh(ambry->generation);
 
 	expires = (time_t)KYRKA_AMBRY_AGE_EPOCH +
-	    (ambry->expires * KYRKA_AMBRY_AGE_SECONDS_PER_DAY);
+	    ((time_t)ambry->expires * KYRKA_AMBRY_AGE_SECONDS_PER_DAY);
 
 	(void)clock_gettime(CLOCK_REALTIME, &ts);
 	if (expires < ts.tv_sec) {
