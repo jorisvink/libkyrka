@@ -169,10 +169,8 @@ kyrka_purgatory_input(struct kyrka *ctx, const void *data, size_t len)
 	cipher.data_len = ctlen;
 	cipher.tag = ptr + ctlen;
 
-	if (kyrka_cipher_decrypt(&cipher) == -1) {
-		ctx->last_error = KYRKA_ERROR_INTERNAL;
-		return (-1);
-	}
+	if (kyrka_cipher_decrypt(&cipher) == -1)
+		return (0);
 
 	purgatory_arwin_update(&ctx->rx, hdr);
 
