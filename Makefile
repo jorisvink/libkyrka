@@ -1,6 +1,7 @@
 # libkyrka Makefile
 
 CC?=cc
+AR?=ar
 OBJDIR?=obj
 LIB=libkyrka.a
 TOPDIR=$(CURDIR)
@@ -64,6 +65,8 @@ else ifeq ("$(OSNAME)", "openbsd")
 	CFLAGS+=-DPLATFORM_OPENBSD
 else ifeq ("$(OSNAME)", "windows")
 	CFLAGS+=-DPLATFORM_WINDOWS -DNYFE_PLATFORM_WINDOWS
+else ifeq ("$(OSNAME)", "esp32")
+	CFLAGS+=-DPLATFORM_ESP32 -DNYFE_PLATFORM_ESP32
 endif
 
 all: $(LIB)
