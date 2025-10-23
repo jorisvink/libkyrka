@@ -277,6 +277,7 @@ struct kyrka_encap_hdr {
  * A security association and space to operate on packets.
  */
 struct kyrka_sa {
+	time_t		age;
 	u_int64_t	pkt;
 	u_int32_t	spi;
 	u_int32_t	salt;

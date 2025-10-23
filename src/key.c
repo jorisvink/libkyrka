@@ -29,17 +29,21 @@
 #define OFFER_DERIVE_LABEL	"SANCTUM.SACRAMENT.KDF"
 
 static void	key_offer_clear(struct kyrka *);
+static int	key_offer_send(struct kyrka *, u_int64_t);
 static int	key_offer_check(struct kyrka *, u_int64_t);
 static int	key_offer_create(struct kyrka *, u_int64_t);
+static int	key_offer_send_fragment(struct kyrka *, int, u_int8_t);
+
+static int	key_make_active(struct kyrka_sa *, struct kyrka_xchg_info *,
+		    const u_int8_t *, size_t, time_t);
 
 static void	key_exchange(struct kyrka *, struct kyrka_offer *);
-static void	key_exchange_encapsulate(struct kyrka *, struct kyrka_offer *);
-static void	key_exchange_decapsulate(struct kyrka *, struct kyrka_offer *);
+static void	key_exchange_encapsulate(struct kyrka *,
+		    struct kyrka_offer *, time_t);
+static void	key_exchange_decapsulate(struct kyrka *,
+		    struct kyrka_offer *, time_t);
 static void	key_exchange_finalize(struct kyrka *,
-		    struct kyrka_offer *, u_int8_t);
-
-static int	key_offer_send(struct kyrka *, u_int64_t);
-static int	key_offer_send_fragment(struct kyrka *, int, u_int8_t);
+		    struct kyrka_offer *, time_t, u_int8_t);
 
 /*
  * Called every event tick by the user of the library. We figure out if we
@@ -190,6 +194,11 @@ key_offer_check(struct kyrka *ctx, u_int64_t now)
 		if (ctx->rx.pkt > KYRKA_SA_PACKET_SOFT) {
 			offer_now = 1;
 			reason = "SA packet limit";
+		}
+
+		if ((now - ctx->rx.age) > KYRKA_SA_LIFETIME_SOFT) {
+			offer_now = 1;
+			reason = "SA age limit";
 		}
 
 		if (ctx->flags & KYRKA_FLAG_AMBRY_NEGOTIATION) {
@@ -403,6 +412,7 @@ key_offer_send_fragment(struct kyrka *ctx, int which, u_int8_t frag)
 static void
 key_exchange(struct kyrka *ctx, struct kyrka_offer *op)
 {
+	struct timespec			ts;
 	struct kyrka_exchange_offer	*exchange;
 
 	PRECOND(ctx != NULL);
@@ -416,12 +426,14 @@ key_exchange(struct kyrka *ctx, struct kyrka_offer *op)
 		return;
 	}
 
+	(void)clock_gettime(CLOCK_MONOTONIC, &ts);
+
 	switch (exchange->state) {
 	case KYRKA_OFFER_STATE_KEM_PK_FRAGMENT:
-		key_exchange_encapsulate(ctx, op);
+		key_exchange_encapsulate(ctx, op, ts.tv_sec);
 		break;
 	case KYRKA_OFFER_STATE_KEM_CT_FRAGMENT:
-		key_exchange_decapsulate(ctx, op);
+		key_exchange_decapsulate(ctx, op, ts.tv_sec);
 		break;
 	default:
 		kyrka_logmsg(ctx, "ignoring unknown offer packet");
@@ -440,9 +452,8 @@ key_exchange(struct kyrka *ctx, struct kyrka_offer *op)
  * The resulting secret is then installed as the RX key.
  */
 static void
-key_exchange_encapsulate(struct kyrka *ctx, struct kyrka_offer *op)
+key_exchange_encapsulate(struct kyrka *ctx, struct kyrka_offer *op, time_t now)
 {
-	struct timespec			ts;
 	size_t				off;
 	struct kyrka_exchange_offer	*xchg;
 
@@ -454,17 +465,15 @@ key_exchange_encapsulate(struct kyrka *ctx, struct kyrka_offer *op)
 	if (xchg->spi == ctx->last_spi)
 		return;
 
-	(void)clock_gettime(CLOCK_MONOTONIC, &ts);
-
 	if (ctx->offer.local.spi == 0) {
-		if (key_offer_create(ctx, ts.tv_sec) == -1)
+		if (key_offer_create(ctx, now) == -1)
 			return;
 	}
 
 	if (ctx->offer.pk_frag == KYRKA_OFFER_KEM_FRAGMENTS_DONE) {
 		if (xchg->id != ctx->peer_id && ctx->offer.local.spi != 0) {
 			key_offer_clear(ctx);
-			if (key_offer_create(ctx, ts.tv_sec) == -1)
+			if (key_offer_create(ctx, now) == -1)
 				return;
 		} else {
 			return;
@@ -492,7 +501,7 @@ key_exchange_encapsulate(struct kyrka *ctx, struct kyrka_offer *op)
 
 	ctx->last_spi = xchg->spi;
 	kyrka_mlkem1024_encapsulate(&ctx->offer.remote.kem);
-	key_exchange_finalize(ctx, op, KYRKA_KEY_DIRECTION_RX);
+	key_exchange_finalize(ctx, op, now, KYRKA_KEY_DIRECTION_RX);
 }
 
 /*
@@ -502,7 +511,7 @@ key_exchange_encapsulate(struct kyrka *ctx, struct kyrka_offer *op)
  * The resulting secret is then installed as the TX session key.
  */
 static void
-key_exchange_decapsulate(struct kyrka *ctx, struct kyrka_offer *op)
+key_exchange_decapsulate(struct kyrka *ctx, struct kyrka_offer *op, time_t now)
 {
 	size_t				off;
 	struct kyrka_exchange_offer	*xchg;
@@ -537,7 +546,7 @@ key_exchange_decapsulate(struct kyrka *ctx, struct kyrka_offer *op)
 
 	ctx->offer.flags &= ~KYRKA_OFFER_INCLUDE_KEM_PK;
 	kyrka_mlkem1024_decapsulate(&ctx->offer.local.kem);
-	key_exchange_finalize(ctx, op, KYRKA_KEY_DIRECTION_TX);
+	key_exchange_finalize(ctx, op, now, KYRKA_KEY_DIRECTION_TX);
 }
 
 /*
@@ -546,12 +555,12 @@ key_exchange_decapsulate(struct kyrka *ctx, struct kyrka_offer *op)
  * of our shared symmetrical secret.
  */
 static void
-key_exchange_finalize(struct kyrka *ctx, struct kyrka_offer *op, u_int8_t dir)
+key_exchange_finalize(struct kyrka *ctx, struct kyrka_offer *op,
+    time_t now, u_int8_t dir)
 {
 	union kyrka_event		evt;
 	struct kyrka_kex		kex;
 	struct kyrka_xchg_info		*info;
-	struct kyrka_cipher		*next;
 	struct kyrka_exchange_offer	*exchange;
 	u_int8_t			okm[KYRKA_KEY_LENGTH];
 
@@ -595,33 +604,17 @@ key_exchange_finalize(struct kyrka *ctx, struct kyrka_offer *op, u_int8_t dir)
 			kex.purpose = KYRKA_KDF_KEY_PURPOSE_TRAFFIC_RX;
 	}
 
-	if (kyrka_traffic_kdf(ctx, &kex, okm, sizeof(okm)) == -1) {
-		nyfe_zeroize(okm, sizeof(okm));
-		nyfe_zeroize(&kex, sizeof(kex));
-		return;
-	}
+	if (kyrka_traffic_kdf(ctx, &kex, okm, sizeof(okm)) == -1)
+		goto cleanup;
 
 	if (dir == KYRKA_KEY_DIRECTION_RX) {
-		ctx->rx.pkt = 0;
-		ctx->rx.seqnr = 1;
-		ctx->rx.bitmap = 0;
-		ctx->rx.spi = ctx->offer.local.spi;
-		ctx->rx.salt = ctx->offer.local.salt;
-		if ((next = kyrka_cipher_setup(okm, sizeof(okm))) == NULL)
-			return;
-		if (ctx->rx.cipher != NULL)
-			kyrka_cipher_cleanup(ctx->rx.cipher);
-		ctx->rx.cipher = next;
+		if (key_make_active(&ctx->rx,
+		    &ctx->offer.local, okm, sizeof(okm), now) == -1)
+			goto cleanup;
 	} else {
-		ctx->tx.pkt = 0;
-		ctx->tx.seqnr = 1;
-		ctx->tx.spi = ctx->offer.remote.spi;
-		ctx->tx.salt = ctx->offer.remote.salt;
-		if ((next = kyrka_cipher_setup(okm, sizeof(okm))) == NULL)
-			return;
-		if (ctx->tx.cipher != NULL)
-			kyrka_cipher_cleanup(ctx->tx.cipher);
-		ctx->tx.cipher = next;
+		if (key_make_active(&ctx->tx,
+		    &ctx->offer.remote, okm, sizeof(okm), now) == -1)
+			goto cleanup;
 	}
 
  	if (ctx->event != NULL) {
@@ -632,6 +625,7 @@ key_exchange_finalize(struct kyrka *ctx, struct kyrka_offer *op, u_int8_t dir)
  		ctx->event(ctx, &evt, ctx->udata);
  	}
 
+cleanup:
 	nyfe_zeroize(okm, sizeof(okm));
 	nyfe_zeroize(&kex, sizeof(kex));
 }
@@ -658,4 +652,39 @@ key_offer_clear(struct kyrka *ctx)
 		evt.exchange.reason = "key offer cleared";
 		ctx->event(ctx, &evt, ctx->udata);
 	}
+}
+
+/*
+ * Make the given key material active in the specified SA by
+ * allocating a new cipher context and install it into the SA.
+ *
+ * We reset all stats and counters after doing so.
+ */
+static int
+key_make_active(struct kyrka_sa *sa, struct kyrka_xchg_info *info,
+    const u_int8_t *key, size_t len, time_t now)
+{
+	struct kyrka_cipher		*next;
+
+	PRECOND(sa != NULL);
+	PRECOND(info != NULL);
+	PRECOND(key != NULL);
+	PRECOND(len == KYRKA_KEY_LENGTH);
+
+	if ((next = kyrka_cipher_setup(key, len)) == NULL)
+		return (-1);
+
+	if (sa->cipher != NULL)
+		kyrka_cipher_cleanup(sa->cipher);
+
+	sa->pkt = 0;
+	sa->seqnr = 1;
+	sa->bitmap = 0;
+
+	sa->age = now;
+	sa->cipher = next;
+	sa->spi = info->spi;
+	sa->salt = info->salt;
+
+	return (0);
 }

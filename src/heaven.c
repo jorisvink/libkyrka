@@ -16,6 +16,7 @@
 
 #include <sys/types.h>
 
+#include <inttypes.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -57,6 +58,7 @@ kyrka_heaven_ifc(struct kyrka *ctx,
 int
 kyrka_heaven_input(struct kyrka *ctx, const void *data, size_t len)
 {
+	struct timespec			ts;
 	struct kyrka_packet		pkt;
 	struct kyrka_proto_tail		*tail;
 	struct kyrka_cipher		cipher;
@@ -82,7 +84,15 @@ kyrka_heaven_input(struct kyrka *ctx, const void *data, size_t len)
 		return (-1);
 	}
 
-	if (ctx->tx.seqnr >= KYRKA_SA_PACKET_HARD) {
+	/* XXX */
+	(void)clock_gettime(CLOCK_MONOTONIC, &ts);
+
+	if (ctx->tx.seqnr >= KYRKA_SA_PACKET_HARD ||
+	    (ts.tv_sec > ctx->tx.age &&
+	    (ts.tv_sec - ctx->tx.age) >= KYRKA_SA_LIFETIME_HARD)) {
+		kyrka_logmsg(ctx,
+		    "expired TX SA (seqnr=%" PRIu64 ", age=%" PRIu64 ")",
+		    ctx->tx.seqnr, (ts.tv_sec - ctx->tx.age));
 		kyrka_cipher_cleanup(ctx->tx.cipher);
 		nyfe_mem_zero(&ctx->tx, sizeof(ctx->tx));
 		ctx->last_error = KYRKA_ERROR_NO_TX_KEY;
