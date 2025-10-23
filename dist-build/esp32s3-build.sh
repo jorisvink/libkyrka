@@ -13,4 +13,5 @@ DESTDIR=esp32s3 \
     CC=$CC \
     AR=$AR \
     CFLAGS="-DESP_PLATFORM -D_GNU_SOURCE" \
+    CIPHER=mbedtls-aes-gcm \
     make install
