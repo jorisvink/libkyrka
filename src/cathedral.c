@@ -222,15 +222,16 @@ kyrka_cathedral_decrypt(struct kyrka *ctx, const void *data, size_t len)
 	PRECOND(ctx != NULL);
 	PRECOND(data != NULL);
 
-	if (len < sizeof(offer)) {
-		ctx->last_error = KYRKA_ERROR_PACKET_ERROR;
-		return (-1);
-	}
-
 	if (!(ctx->flags & KYRKA_FLAG_CATHEDRAL_CONFIG) ||
 	    !(ctx->flags & KYRKA_FLAG_CATHEDRAL_SECRET)) {
 		ctx->last_error = KYRKA_ERROR_CATHEDRAL_CONFIG;
 		return (-1);
+	}
+
+	if (len < sizeof(offer)) {
+		kyrka_logmsg(ctx,
+		    "got a cathedral packet of suspicious size (%zu)", len);
+		return (0);
 	}
 
 	nyfe_zeroize_register(&okm, sizeof(okm));
