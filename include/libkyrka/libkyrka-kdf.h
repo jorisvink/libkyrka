@@ -14,11 +14,11 @@
  * OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  */
 
-#ifndef __H_SANCTUM_KDF_H
-#define __H_SANCTUM_KDF_H
+#ifndef __H_KYRKA_KDF_H
+#define __H_KYRKA_KDF_H
 
 /*
- * All labels used by sanctum when performing KDF for different purposes.
+ * All labels used by Sanctum when performing KDF for different purposes.
  */
 
 #if !defined(KYRKA_KDF_PREFIX)
