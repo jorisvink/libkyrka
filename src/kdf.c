@@ -22,21 +22,6 @@
 
 #include "libkyrka-int.h"
 
-/* The KDF label for offer key derivation from shared secret. */
-#define KDF_KEY_OFFER_LABEL		"SANCTUM.KEY.OFFER.KDF"
-
-/* The KDF label for traffic key derivation from shared secret (RX). */
-#define KDF_KEY_TRAFFIC_RX_LABEL	"SANCTUM.KEY.TRAFFIC.RX.KDF"
-
-/* The KDF label for traffic key derivation from shared secret (TX). */
-#define KDF_KEY_TRAFFIC_TX_LABEL	"SANCTUM.KEY.TRAFFIC.TX.KDF"
-
-/* The KDF label for the unwrapping key derivation from a KEK. */
-#define KDF_KEY_KEK_UNWRAP_LABEL	"SANCTUM.KEY.KEK.UNWRAP.KDF"
-
-/* The KDF label when deriving traffic keys. */
-#define KDF_TRAFFIC_LABEL		"SANCTUM.TRAFFIC.KDF"
-
 /*
  * Derive a symmetrical key from the given secret and the given seed + label
  * for the purpose of encrypting offerings.
@@ -113,7 +98,7 @@ kyrka_traffic_kdf(struct kyrka *ctx, struct kyrka_kex *kx,
 	kyrka_mask(ctx, ctx->cfg.secret, sizeof(ctx->cfg.secret));
 
 	nyfe_kmac256_init(&kdf, secret, sizeof(secret),
-	    KDF_TRAFFIC_LABEL, strlen(KDF_TRAFFIC_LABEL));
+	    KYRKA_TRAFFIC_KDF_LABEL, strlen(KYRKA_TRAFFIC_KDF_LABEL));
 
 	len = sizeof(ecdh);
 	nyfe_kmac256_update(&kdf, &len, sizeof(len));
@@ -180,16 +165,16 @@ kyrka_base_key(const u_int8_t *secret, size_t secret_len, int purpose,
 
 	switch (purpose) {
 	case KYRKA_KDF_KEY_PURPOSE_OFFER:
-		label = KDF_KEY_OFFER_LABEL;
+		label = KYRKA_KEY_OFFER_KDF_LABEL;
 		break;
 	case KYRKA_KDF_KEY_PURPOSE_TRAFFIC_RX:
-		label = KDF_KEY_TRAFFIC_RX_LABEL;
+		label = KYRKA_KEY_TRAFFIC_RX_KDF_LABEL;
 		break;
 	case KYRKA_KDF_KEY_PURPOSE_TRAFFIC_TX:
-		label = KDF_KEY_TRAFFIC_TX_LABEL;
+		label = KYRKA_KEY_TRAFFIC_TX_KDF_LABEL;
 		break;
 	case KYRKA_KDF_KEY_PURPOSE_KEK_UNWRAP:
-		label = KDF_KEY_KEK_UNWRAP_LABEL;
+		label = KYRKA_KEY_KEK_UNWRAP_KDF_LABEL;
 		break;
 	default:
 		abort();

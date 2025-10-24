@@ -25,9 +25,6 @@
 
 #include "libkyrka-int.h"
 
-/* The KDF label for deriving a key for encrypting an offer. */
-#define OFFER_DERIVE_LABEL	"SANCTUM.SACRAMENT.KDF"
-
 static void	key_offer_clear(struct kyrka *);
 static int	key_offer_send(struct kyrka *, u_int64_t);
 static int	key_offer_check(struct kyrka *, u_int64_t);
@@ -112,8 +109,9 @@ kyrka_key_offer_decrypt(struct kyrka *ctx, const void *data, size_t len)
 
 	kyrka_mask(ctx, ctx->cfg.secret, sizeof(ctx->cfg.secret));
 	kyrka_offer_kdf(ctx, ctx->cfg.secret, sizeof(ctx->cfg.secret),
-	    OFFER_DERIVE_LABEL, &okm, offer.hdr.seed, sizeof(offer.hdr.seed),
-	    ctx->cathedral.flock_src, ctx->cathedral.flock_dst);
+	    KYRKA_CHAPEL_DERIVE_LABEL, &okm, offer.hdr.seed,
+	    sizeof(offer.hdr.seed), ctx->cathedral.flock_src,
+	    ctx->cathedral.flock_dst);
 	kyrka_mask(ctx, ctx->cfg.secret, sizeof(ctx->cfg.secret));
 
 	if (kyrka_offer_decrypt(&okm, &offer, 10) == -1)
@@ -350,7 +348,7 @@ key_offer_send_fragment(struct kyrka *ctx, int which, u_int8_t frag)
 
 	kyrka_mask(ctx, ctx->cfg.secret, sizeof(ctx->cfg.secret));
 	kyrka_offer_kdf(ctx, ctx->cfg.secret, sizeof(ctx->cfg.secret),
-	    OFFER_DERIVE_LABEL, &okm, op->hdr.seed, sizeof(op->hdr.seed),
+	    KYRKA_CHAPEL_DERIVE_LABEL, &okm, op->hdr.seed, sizeof(op->hdr.seed),
 	    ctx->cathedral.flock_src, ctx->cathedral.flock_dst);
 	kyrka_mask(ctx, ctx->cfg.secret, sizeof(ctx->cfg.secret));
 

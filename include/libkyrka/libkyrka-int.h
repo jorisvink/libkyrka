@@ -26,6 +26,7 @@
 #include <stdlib.h>
 
 #include "libkyrka.h"
+#include "libkyrka-kdf.h"
 #include "libnyfe.h"
 
 /* Portability for apple devices. */
@@ -97,15 +98,6 @@
 
 /* The length of the seed in a key offer packet. */
 #define KYRKA_KEY_OFFER_SALT_LEN		64
-
-/* The KDF label for the cathedral. */
-#define KYRKA_CATHEDRAL_KDF_LABEL		"SANCTUM.CATHEDRAL.KDF"
-
-/* The KDF label for traffic encapsulation. */
-#define KYRKA_ENCAP_LABEL			"SANCTUM.ENCAP.KDF"
-
-/* The label for KMAC256 for ambry. */
-#define KYRKA_AMBRY_KDF				"SANCTUM.AMBRY.KDF"
 
 /* Length of a seed using for deriving Ambry wrapping keys. */
 #define KYRKA_AMBRY_SEED_LEN			64
