@@ -544,7 +544,7 @@ cathedral_ambry_unwrap(struct kyrka *ctx, struct kyrka_ambry_offer *ambry)
 
 	kyrka_mask(ctx, ctx->cfg.kek, sizeof(ctx->cfg.kek));
 	kyrka_base_key(ctx->cfg.kek, sizeof(ctx->cfg.kek),
-	    KYRKA_KDF_KEY_PURPOSE_KEK_UNWRAP, okm, sizeof(okm),
+	    KYRKA_KDF_PURPOSE_KEY_KEK_UNWRAP, okm, sizeof(okm),
 	    flock_src, flock_dst);
 	kyrka_mask(ctx, ctx->cfg.kek, sizeof(ctx->cfg.kek));
 

@@ -24,7 +24,7 @@
 
 /*
  * Derive a symmetrical key from the given secret and the given seed + label
- * for the purpose of encrypting offerings.
+ * for the purpose of encrypting offerings either to a peer or to a cathedral.
  */
 void
 kyrka_offer_kdf(struct kyrka *ctx, const u_int8_t *secret, size_t secret_len,
@@ -32,6 +32,7 @@ kyrka_offer_kdf(struct kyrka *ctx, const u_int8_t *secret, size_t secret_len,
     u_int64_t flock_a, u_int64_t flock_b)
 {
 	struct nyfe_kmac256	kdf;
+	int			purpose;
 	u_int8_t		len, key[KYRKA_KEY_LENGTH];
 
 	PRECOND(ctx != NULL);
@@ -45,9 +46,15 @@ kyrka_offer_kdf(struct kyrka *ctx, const u_int8_t *secret, size_t secret_len,
 	nyfe_zeroize_register(key, sizeof(key));
 	nyfe_zeroize_register(&kdf, sizeof(kdf));
 
+	if (!strcmp(label, KYRKA_CATHEDRAL_KDF_LABEL)) {
+		purpose = KYRKA_KDF_PURPOSE_CATHEDRAL_OFFER;
+	} else {
+		purpose = KYRKA_KDF_PURPOSE_PEER_OFFER;
+	}
+
 	len = 64;
 	kyrka_base_key(secret, secret_len,
-	    KYRKA_KDF_KEY_PURPOSE_OFFER, key, sizeof(key), flock_a, flock_b);
+	    purpose, key, sizeof(key), flock_a, flock_b);
 
 	nyfe_kmac256_init(&kdf, key, sizeof(key), label, strlen(label));
 	nyfe_kmac256_update(&kdf, &len, sizeof(len));
@@ -158,22 +165,26 @@ kyrka_base_key(const u_int8_t *secret, size_t secret_len, int purpose,
 	PRECOND(secret_len == KYRKA_KEY_LENGTH);
 	PRECOND(out != NULL);
 	PRECOND(out_len == KYRKA_KEY_LENGTH);
-	PRECOND(purpose == KYRKA_KDF_KEY_PURPOSE_OFFER ||
-	    purpose == KYRKA_KDF_KEY_PURPOSE_TRAFFIC_RX ||
-	    purpose == KYRKA_KDF_KEY_PURPOSE_TRAFFIC_TX ||
-	    purpose == KYRKA_KDF_KEY_PURPOSE_KEK_UNWRAP);
+	PRECOND(purpose == KYRKA_KDF_PURPOSE_PEER_OFFER ||
+	    purpose == KYRKA_KDF_PURPOSE_CATHEDRAL_OFFER ||
+	    purpose == KYRKA_KDF_PURPOSE_KEY_TRAFFIC_RX ||
+	    purpose == KYRKA_KDF_PURPOSE_KEY_TRAFFIC_TX ||
+	    purpose == KYRKA_KDF_PURPOSE_KEY_KEK_UNWRAP);
 
 	switch (purpose) {
-	case KYRKA_KDF_KEY_PURPOSE_OFFER:
-		label = KYRKA_KEY_OFFER_KDF_LABEL;
+	case KYRKA_KDF_PURPOSE_PEER_OFFER:
+		label = KYRKA_PEER_OFFER_KDF_LABEL;
 		break;
-	case KYRKA_KDF_KEY_PURPOSE_TRAFFIC_RX:
+	case KYRKA_KDF_PURPOSE_CATHEDRAL_OFFER:
+		label = KYRKA_CATHEDRAL_OFFER_KDF_LABEL;
+		break;
+	case KYRKA_KDF_PURPOSE_KEY_TRAFFIC_RX:
 		label = KYRKA_KEY_TRAFFIC_RX_KDF_LABEL;
 		break;
-	case KYRKA_KDF_KEY_PURPOSE_TRAFFIC_TX:
+	case KYRKA_KDF_PURPOSE_KEY_TRAFFIC_TX:
 		label = KYRKA_KEY_TRAFFIC_TX_KDF_LABEL;
 		break;
-	case KYRKA_KDF_KEY_PURPOSE_KEK_UNWRAP:
+	case KYRKA_KDF_PURPOSE_KEY_KEK_UNWRAP:
 		label = KYRKA_KEY_KEK_UNWRAP_KDF_LABEL;
 		break;
 	default:
