@@ -644,7 +644,6 @@ int	kyrka_file_open(struct kyrka *, const char *);
 
 /* src/offer.c */
 void	kyrka_offer_nonce(u_int8_t *, size_t);
-void	kyrka_offer_tfc(struct kyrka_packet *);
 int	kyrka_offer_sign(struct kyrka *, struct kyrka_offer *);
 int	kyrka_offer_encrypt(struct kyrka_key *, struct kyrka_offer *);
 int	kyrka_offer_decrypt(struct kyrka_key *, struct kyrka_offer *, int);

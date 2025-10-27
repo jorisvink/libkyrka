@@ -123,38 +123,6 @@ kyrka_offer_sign(struct kyrka *ctx, struct kyrka_offer *op)
 }
 
 /*
- * Provide TFC for the offer when both tfc and encap are enabled, this hides
- * the fact that this is an offer on the wire.
- *
- * We have to include the ipsec header, tail and the cipher overhead
- * so that the offer is indistinguishable from traffic.
- *
- * The remaining bytes in the packet are filled with random data.
- */
-void
-kyrka_offer_tfc(struct kyrka_packet *pkt)
-{
-#if 0
-	u_int8_t	*data;
-	size_t		offset;
-
-	PRECOND(pkt != NULL);
-	PRECOND(pkt->length == sizeof(struct kyrka_offer));
-
-	if ((kyrka->flags & SANCTUM_FLAG_TFC_ENABLED) &&
-	    (kyrka->flags & SANCTUM_FLAG_ENCAPSULATE)) {
-		offset = pkt->length;
-		pkt->length = kyrka->tun_mtu +
-		    sizeof(struct kyrka_proto_hdr) +
-		    sizeof(struct kyrka_proto_tail) +
-		    kyrka_cipher_overhead();
-		data = kyrka_packet_head(pkt);
-		kyrka_random_bytes(&data[offset], pkt->length - offset);
-	}
-#endif
-}
-
-/*
  * Verify and decrypt a kyrka_offer packet.
  * Note: does not zeroize the cipher, this is the caller its responsibility.
  */
