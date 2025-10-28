@@ -192,14 +192,10 @@ key_offer_check(struct kyrka *ctx, u_int64_t now)
 		if (ctx->rx.pkt > KYRKA_SA_PACKET_SOFT) {
 			offer_now = 1;
 			reason = "SA packet limit";
-		}
-
-		if ((now - ctx->rx.age) > KYRKA_SA_LIFETIME_SOFT) {
+		} else if ((now - ctx->rx.age) > KYRKA_SA_LIFETIME_SOFT) {
 			offer_now = 1;
 			reason = "SA age limit";
-		}
-
-		if (ctx->flags & KYRKA_FLAG_AMBRY_NEGOTIATION) {
+		} else if (ctx->flags & KYRKA_FLAG_AMBRY_NEGOTIATION) {
 			offer_now = 1;
 			reason = "new ambry";
 		}
