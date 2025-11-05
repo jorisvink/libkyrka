@@ -123,6 +123,9 @@
 /* Number of bytes for x25519 scalars. */
 #define KYRKA_X25519_SCALAR_BYTES		32
 
+/* The size of random data carried in offer.extra for a key exchange. */
+#define KYRKA_EXCHANGE_RANDOM_SIZE		16
+
 /* Number of bytes for the ML-KEM-1024 shared secret. */
 #define KYRKA_MLKEM_1024_KEY_BYTES		32
 
@@ -420,7 +423,12 @@ struct kyrka_offer_data {
 struct kyrka_offer {
 	struct kyrka_offer_hdr		hdr;
 	struct kyrka_offer_data		data;
-	u_int8_t			sig[KYRKA_ED25519_SIGN_LENGTH];
+
+	union {
+		u_int8_t		sig[KYRKA_ED25519_SIGN_LENGTH];
+		u_int8_t		random[KYRKA_EXCHANGE_RANDOM_SIZE];
+	} extra;
+
 	u_int8_t			tag[KYRKA_TAG_LENGTH];
 } __attribute__((packed));
 
@@ -464,6 +472,7 @@ struct kyrka_kex {
 	u_int8_t		pub2[KYRKA_X25519_SCALAR_BYTES];
 	u_int8_t		remote[KYRKA_X25519_SCALAR_BYTES];
 	u_int8_t		private[KYRKA_X25519_SCALAR_BYTES];
+	u_int8_t		random[KYRKA_EXCHANGE_RANDOM_SIZE * 2];
 };
 
 /* If a secret has been loaded into the context. */
@@ -499,6 +508,7 @@ struct kyrka_xchg_info {
 	u_int32_t			salt;
 	u_int8_t			public[KYRKA_X25519_SCALAR_BYTES];
 	u_int8_t			private[KYRKA_X25519_SCALAR_BYTES];
+	u_int8_t			random[KYRKA_EXCHANGE_RANDOM_SIZE];
 };
 
 /*

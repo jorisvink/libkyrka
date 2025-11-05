@@ -238,6 +238,11 @@ key_offer_create(struct kyrka *ctx, u_int64_t now)
 	kyrka_random_bytes(&ctx->offer.local.salt,
 	    sizeof(ctx->offer.local.salt));
 
+	kyrka_random_bytes(ctx->offer.local.random,
+	    sizeof(ctx->offer.local.random));
+	kyrka_random_bytes(ctx->offer.remote.random,
+	    sizeof(ctx->offer.remote.random));
+
 	if (ctx->cfg.spi != 0) {
 		ctx->offer.local.spi = (ctx->offer.local.spi & 0x0000ffff) |
 		    ((u_int32_t)ctx->cfg.spi << 16);
@@ -356,6 +361,8 @@ key_offer_send_fragment(struct kyrka *ctx, int which, u_int8_t frag)
 	exchange->id = htobe64(ctx->local_id);
 
 	nyfe_memcpy(exchange->ecdh, info->public, sizeof(info->public));
+	nyfe_memcpy(op->extra.random, info->random, sizeof(info->random));
+
 	offset = frag * KYRKA_OFFER_KEM_FRAGMENT_SIZE;
 
 	if (which == KYRKA_OFFER_INCLUDE_KEM_CT) {
@@ -584,6 +591,10 @@ key_exchange_finalize(struct kyrka *ctx, struct kyrka_offer *op,
 		nyfe_memcpy(kex.pub1, info->public, sizeof(info->public));
 		nyfe_memcpy(kex.pub2, exchange->ecdh, sizeof(exchange->ecdh));
 
+		nyfe_memcpy(kex.random, info->random, sizeof(info->random));
+		nyfe_memcpy(&kex.random[sizeof(info->random)],
+		    op->extra.random, sizeof(op->extra.random));
+
 		if (dir == KYRKA_KEY_DIRECTION_RX)
 			kex.purpose = KYRKA_KDF_PURPOSE_KEY_TRAFFIC_RX;
 		else
@@ -591,6 +602,11 @@ key_exchange_finalize(struct kyrka *ctx, struct kyrka_offer *op,
 	} else {
 		nyfe_memcpy(kex.pub1, exchange->ecdh, sizeof(exchange->ecdh));
 		nyfe_memcpy(kex.pub2, info->public, sizeof(info->public));
+
+		nyfe_memcpy(kex.random, op->extra.random,
+		    sizeof(op->extra.random));
+		nyfe_memcpy(&kex.random[sizeof(op->extra.random)],
+		    info->random, sizeof(info->random));
 
 		if (dir == KYRKA_KEY_DIRECTION_RX)
 			kex.purpose = KYRKA_KDF_PURPOSE_KEY_TRAFFIC_TX;

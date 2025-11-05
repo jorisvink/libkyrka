@@ -47,7 +47,7 @@ kyrka_offer_init(struct kyrka_packet *pkt, u_int32_t spi,
 	op->hdr.spi = htobe32(spi);
 	op->hdr.magic = htobe64(magic);
 
-	kyrka_random_bytes(op->sig, sizeof(op->sig));
+	kyrka_random_bytes(&op->extra, sizeof(op->extra));
 	kyrka_random_bytes(op->hdr.seed, sizeof(op->hdr.seed));
 	kyrka_random_bytes(&op->hdr.flock_src, sizeof(op->hdr.flock_src));
 	kyrka_random_bytes(&op->hdr.flock_dst, sizeof(op->hdr.flock_dst));
@@ -85,7 +85,7 @@ kyrka_offer_encrypt(struct kyrka_key *key, struct kyrka_offer *op)
 	cipher.pt = &op->data;
 	cipher.ct = &op->data;
 	cipher.tag = &op->tag[0];
-	cipher.data_len = sizeof(op->data) + sizeof(op->sig);
+	cipher.data_len = sizeof(op->data) + sizeof(op->extra);
 
 	if (kyrka_cipher_encrypt(&cipher) == -1) {
 		kyrka_cipher_cleanup(cipher.ctx);
@@ -110,8 +110,8 @@ kyrka_offer_sign(struct kyrka *ctx, struct kyrka_offer *op)
 
 	kyrka_mask(ctx, ctx->cathedral.sk, sizeof(ctx->cathedral.sk));
 
-	if (kyrka_signature_create(ctx,
-	    &op->data, sizeof(op->data), op->sig, sizeof(op->sig)) == -1) {
+	if (kyrka_signature_create(ctx, &op->data,
+	    sizeof(op->data), op->extra.sig, sizeof(op->extra.sig)) == -1) {
 		kyrka_mask(ctx, ctx->cathedral.sk, sizeof(ctx->cathedral.sk));
 		kyrka_logmsg(ctx, "failed to sign cathedral offer");
 		return (-1);
@@ -151,7 +151,7 @@ kyrka_offer_decrypt(struct kyrka_key *key, struct kyrka_offer *op, int valid)
 	cipher.pt = &op->data;
 	cipher.ct = &op->data;
 	cipher.tag = &op->tag[0];
-	cipher.data_len = sizeof(op->data) + sizeof(op->sig);
+	cipher.data_len = sizeof(op->data) + sizeof(op->extra);
 
 	if (kyrka_cipher_decrypt(&cipher) == -1) {
 		kyrka_cipher_cleanup(cipher.ctx);

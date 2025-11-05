@@ -71,7 +71,9 @@ kyrka_offer_kdf(struct kyrka *ctx, const u_int8_t *secret, size_t secret_len,
  * the ML-KEM-1024 exchange.
  *
  * IKM = len(ecdh_ss) || ecdh_ss || len(mlkem1024_ss) || mlkem1024_ss ||
- *       len(local.pub) || local.pub || len(offer.pub) || offer.pub || dir
+ *       len(local.pub) || local.pub || len(offer.pub) || offer.pub ||
+ *       len(random) || random
+ *
  * OKM = KMAC256(traffic_key, IKM)
  */
 int
@@ -122,6 +124,10 @@ kyrka_traffic_kdf(struct kyrka *ctx, struct kyrka_kex *kx,
 	len = sizeof(kx->pub2);
 	nyfe_kmac256_update(&kdf, &len, sizeof(len));
 	nyfe_kmac256_update(&kdf, kx->pub2, sizeof(kx->pub2));
+
+	len = sizeof(kx->random);
+	nyfe_kmac256_update(&kdf, &len, sizeof(len));
+	nyfe_kmac256_update(&kdf, kx->random, sizeof(kx->random));
 
 	nyfe_kmac256_final(&kdf, okm, okm_len);
 
