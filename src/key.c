@@ -68,6 +68,7 @@ kyrka_key_manage(struct kyrka *ctx)
 
 	if (ctx->offer.local.spi != 0) {
 		if (ctx->offer.local.spi == ctx->rx.spi && ctx->rx.pkt > 0) {
+			ctx->flags &= ~KYRKA_FLAG_AMBRY_NEGOTIATION;
 			ctx->offer.flags &= ~KYRKA_OFFER_INCLUDE_KEM_CT;
 			if (ctx->offer.flags == 0)
 				key_offer_clear(ctx);
