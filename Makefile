@@ -12,6 +12,7 @@ SHARED_FLAGS=-shared
 DESTDIR?=
 PREFIX?=/usr/local
 LIB_DIR=$(PREFIX)/lib
+PKG_DIR=$(LIB_DIR)/pkgconfig
 INCLUDE_DIR=$(PREFIX)/include/libkyrka
 
 RANDOM?=nyfe
@@ -120,6 +121,7 @@ install: $(LIB)
 	mkdir -p $(DESTDIR)$(LIB_DIR)
 	mkdir -p $(DESTDIR)$(INCLUDE_DIR)
 	install -m 555 $(LIB) $(DESTDIR)$(LIB_DIR)/$(BIN)
+	install -m 644 pkgconfig/libkyrka.pc $(PKG_DIR)
 	install -m 644 include/libkyrka/* $(DESTDIR)$(INCLUDE_DIR)
 	install -m 644 nyfe/include/portable_win.h $(DESTDIR)$(INCLUDE_DIR)
 	install -m 644 nyfe/include/portable_esp32.h $(DESTDIR)$(INCLUDE_DIR)

@@ -1,0 +1,11 @@
+prefix=/usr/local
+includedir=${prefix}/include
+libdir=${prefix}/lib
+
+Name: libkyrka
+Description: libkyrka is a C library that implements the sanctum protocol.
+URL: https://github.com/jorisvink/libkyrka
+Version: 0.0.1
+Requires: libsodium 
+Cflags: -I"${includedir}"
+Libs: -L"${libdir}" -lkyrka
