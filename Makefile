@@ -10,7 +10,7 @@ VERSION=$(OBJDIR)/version.c
 SHARED_FLAGS=-shared
 
 DESTDIR?=
-PREFIX?=/usr/local
+PREFIX?=$(DESTDIR)/usr/local
 LIB_DIR=$(PREFIX)/lib
 PKG_DIR=$(LIB_DIR)/pkgconfig
 INCLUDE_DIR=$(PREFIX)/include/libkyrka
@@ -119,9 +119,10 @@ $(OBJDIR)/python/libkyrka.so: $(LIB) $(OBJDIR)/python.o
 
 install: $(LIB)
 	mkdir -p $(DESTDIR)$(LIB_DIR)
+	mkdir -p $(DESTDIR)$(PKG_DIR)
 	mkdir -p $(DESTDIR)$(INCLUDE_DIR)
 	install -m 555 $(LIB) $(DESTDIR)$(LIB_DIR)/$(BIN)
-	install -m 644 pkgconfig/libkyrka.pc $(PKG_DIR)
+	install -m 644 pkgconfig/libkyrka.pc $(DESTDIR)/$(PKG_DIR)
 	install -m 644 include/libkyrka/* $(DESTDIR)$(INCLUDE_DIR)
 	install -m 644 nyfe/include/portable_win.h $(DESTDIR)$(INCLUDE_DIR)
 	install -m 644 nyfe/include/portable_esp32.h $(DESTDIR)$(INCLUDE_DIR)
