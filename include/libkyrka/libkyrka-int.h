@@ -270,7 +270,7 @@ struct kyrka_encap_hdr {
 #define KYRKA_PACKET_MAX_LEN		(KYRKA_PACKET_DATA_LEN + 64)
 
 /*
- * A security association and space to operate on packets.
+ * A security assocation.
  */
 struct kyrka_sa {
 	time_t		age;
@@ -283,7 +283,13 @@ struct kyrka_sa {
 };
 
 /*
- * A packet.
+ * A packet, all internal functions handling packets use this
+ * data structure to pass data back and forth.
+ *
+ * Incoming packets are copied into a kyrka_packet before they
+ * are handled. While this isn't ideal due to the disconnected
+ * i/o we don't actually know how packets arrive so we do it
+ * as such.
  */
 struct kyrka_packet {
 	size_t		length;
@@ -312,7 +318,6 @@ struct kyrka_ifc {
  *	5) A remembrance offering (from cathedral to us)
  *	6) An exchange offering (between peers)
  */
-
 #define KYRKA_OFFER_TYPE_KEY		1
 #define KYRKA_OFFER_TYPE_AMBRY		2
 #define KYRKA_OFFER_TYPE_INFO		3
@@ -375,6 +380,7 @@ struct kyrka_remembrance_offer {
 	u_int16_t		ports[KYRKA_CATHEDRALS_MAX];
 } __attribute__((packed));
 
+/* Set in the info offer if we want remembrances back. */
 #define KYRKA_INFO_FLAG_REMEMBRANCE	(1 << 0)
 
 struct kyrka_info_offer {
@@ -395,7 +401,10 @@ struct kyrka_info_offer {
 	u_int64_t		instance;
 } __attribute__((packed));
 
+/* Set in the liturgy offer if we want remembrances back. */
 #define KYRKA_LITURGY_FLAG_REMEMBRANCE	KYRKA_INFO_FLAG_REMEMBRANCE
+
+/* Set in the liturgy offer if this is a signaling liturgy. */
 #define KYRKA_LITURGY_FLAG_SIGNALING	(1 << 1)
 
 struct kyrka_liturgy_offer {
