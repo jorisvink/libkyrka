@@ -22,13 +22,11 @@ $ make
 # make install
 ```
 
-You can select what cipher sanctum will use by specifying a CIPHER environment
-variable at compile time with one of the following:
+Just like sanctum, libkyrka comes with different compile-time selectable
+backends for the cryptographic primitives. See
+[https://github.com/jorisvink/sanctum/blob/master/docs/building.md](docs/building.md) in the sanctum repo for more information.
 
-- libsodium-aes-gcm (AES256-GCM via libsodium) **[default]**
-- mbedtls-aes-gcm (AES256-GCM via mbedtls 3.x its mbedcrypto lib)
-
-This repository also comes with a python module that can be built
+Libkyrka also comes with a python module that can be built
 given that you have the right python3 dev stuff on your machine:
 
 ```
