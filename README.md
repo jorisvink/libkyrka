@@ -24,7 +24,7 @@ $ make
 
 Just like sanctum, libkyrka comes with different compile-time selectable
 backends for the cryptographic primitives. See
-[https://github.com/jorisvink/sanctum/blob/master/docs/building.md](docs/building.md) in the sanctum repo for more information.
+<a href="https://github.com/jorisvink/sanctum/blob/master/docs/building.md">docs/building.md</a> in the sanctum repo for more information.
 
 Libkyrka also comes with a python module that can be built
 given that you have the right python3 dev stuff on your machine:
