@@ -6,8 +6,11 @@ OBJDIR?=obj
 LIB=libkyrka.a
 TOPDIR=$(CURDIR)
 LIBNYFE=nyfe/libnyfe.a
+PC=$(OBJDIR)/libkyrka.pc
 VERSION=$(OBJDIR)/version.c
 SHARED_FLAGS=-shared
+
+EXTRA_LIBS=
 
 DESTDIR?=
 PREFIX?=$(DESTDIR)/usr/local
@@ -91,7 +94,7 @@ LIBNYFE_OBJS=		nyfe/$(OBJDIR)/sha3.o \
 OBJS=	$(SRC:%.c=$(OBJDIR)/%.o)
 OBJS+=	$(OBJDIR)/version.o
 
-$(LIB): $(OBJDIR) $(LIBNYFE) $(KEMLIB) $(OBJS) $(VERSION)
+$(LIB): $(OBJDIR) $(LIBNYFE) $(KEMLIB) $(OBJS) $(VERSION) $(PC)
 	$(AR) rcs $(LIB) $(OBJS) $(LIBNYFE_OBJS) $(KEMLIB_OBJS)
 
 $(VERSION): $(OBJDIR) force
@@ -117,12 +120,15 @@ $(OBJDIR)/python/libkyrka.so: $(LIB) $(OBJDIR)/python.o
 	@mkdir -p $(OBJDIR)/python
 	$(CC) $(SHARED_FLAGS) $(OBJDIR)/python.o $(LIB) $(LDFLAGS) -o $@
 
+$(PC): pkgconfig/libkyrka.pc
+	sed 's/%%EXTRA_LIBS%%/$(EXTRA_LIBS)/' $< > $@
+
 install: $(LIB)
 	mkdir -p $(DESTDIR)$(LIB_DIR)
 	mkdir -p $(DESTDIR)$(PKG_DIR)
 	mkdir -p $(DESTDIR)$(INCLUDE_DIR)
 	install -m 555 $(LIB) $(DESTDIR)$(LIB_DIR)/$(BIN)
-	install -m 644 pkgconfig/libkyrka.pc $(DESTDIR)/$(PKG_DIR)
+	install -m 644 $(PC) $(DESTDIR)/$(PKG_DIR)
 	install -m 644 include/libkyrka/* $(DESTDIR)$(INCLUDE_DIR)
 	install -m 644 nyfe/include/portable_win.h $(DESTDIR)$(INCLUDE_DIR)
 	install -m 644 nyfe/include/portable_esp32.h $(DESTDIR)$(INCLUDE_DIR)
