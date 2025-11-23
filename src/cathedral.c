@@ -622,7 +622,9 @@ cathedral_ambry_unwrap(struct kyrka *ctx, struct kyrka_ambry_offer *ambry)
 	}
 
 	ctx->flags |= KYRKA_FLAG_SECRET_SET;
-	ctx->flags |= KYRKA_FLAG_AMBRY_NEGOTIATION;
+	if (ctx->cathedral.ambry != 0)
+		ctx->flags |= KYRKA_FLAG_AMBRY_NEGOTIATION;
+
 	ctx->cathedral.ambry = ambry->generation;
 
 	nyfe_memcpy(ctx->cfg.secret, ambry->key, sizeof(ambry->key));
