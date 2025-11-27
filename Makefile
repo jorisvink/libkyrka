@@ -130,6 +130,7 @@ install: $(LIB)
 	install -m 555 $(LIB) $(DESTDIR)$(LIB_DIR)/$(BIN)
 	install -m 644 $(PC) $(DESTDIR)/$(PKG_DIR)
 	install -m 644 include/libkyrka/* $(DESTDIR)$(INCLUDE_DIR)
+	install -m 644 nyfe/include/libnyfe.h $(DESTDIR)$(INCLUDE_DIR)
 	install -m 644 nyfe/include/portable_win.h $(DESTDIR)$(INCLUDE_DIR)
 	install -m 644 nyfe/include/portable_esp32.h $(DESTDIR)$(INCLUDE_DIR)
 	@if [ ! -z "$(CROSS_BUILD)" ]; then \
