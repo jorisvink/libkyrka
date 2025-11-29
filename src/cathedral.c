@@ -35,6 +35,8 @@ static void	cathedral_remembrance_recv(struct kyrka *,
 		    struct kyrka_offer *);
 static void	cathedral_ambry_unwrap(struct kyrka *,
 		    struct kyrka_ambry_offer *);
+static void	*cathedral_ambry_key_derive(struct kyrka *,
+		    struct kyrka_ambry_offer *);
 
 /*
  * Configure the use of a cathedral. You must specify the cathedral secret
@@ -520,21 +522,93 @@ static void
 cathedral_ambry_unwrap(struct kyrka *ctx, struct kyrka_ambry_offer *ambry)
 {
 	struct timespec			ts;
-	u_int8_t			len;
 	union kyrka_event		evt;
-	struct nyfe_kmac256		kdf;
 	struct kyrka_ambry_aad		aad;
 	struct kyrka_cipher		cipher;
-	u_int16_t			tunnel;
 	time_t				expires;
-	u_int64_t			flock_src, flock_dst;
-	u_int8_t			okm[KYRKA_AMBRY_KEY_LEN];
 	u_int8_t			nonce[KYRKA_NONCE_LENGTH];
 
 	PRECOND(ctx != NULL);
 	PRECOND(ambry != NULL);
 	PRECOND(ctx->flags & KYRKA_FLAG_CATHEDRAL_CONFIG);
 	PRECOND(ctx->flags & KYRKA_FLAG_DEVICE_KEK);
+
+	if ((cipher.ctx = cathedral_ambry_key_derive(ctx, ambry)) == NULL)
+		return;
+
+	aad.expires = ambry->expires;
+	aad.tunnel = htobe16(ctx->cfg.spi);
+	aad.generation = ambry->generation;
+	aad.flock_src = htobe64(ctx->cathedral.flock_src & ~(0xff));
+	aad.flock_dst = htobe64(ctx->cathedral.flock_dst & ~(0xff));
+
+	nyfe_memcpy(aad.seed, ambry->seed, sizeof(ambry->seed));
+
+	cipher.aad = &aad;
+	cipher.aad_len = sizeof(aad);
+
+	cipher.nonce = nonce;
+	cipher.nonce_len = sizeof(nonce);
+	kyrka_offer_nonce(nonce, sizeof(nonce));
+
+	cipher.ct = ambry->key;
+	cipher.pt = ambry->key;
+	cipher.tag = &ambry->tag[0];
+	cipher.data_len = sizeof(ambry->key);
+
+	if (kyrka_cipher_decrypt(&cipher) == -1) {
+		kyrka_cipher_cleanup(cipher.ctx);
+		kyrka_logmsg(ctx, "ambry integrity check failed");
+		return;
+	}
+
+	kyrka_cipher_cleanup(cipher.ctx);
+
+	ambry->expires = be16toh(ambry->expires);
+	ambry->generation = be32toh(ambry->generation);
+
+	expires = (time_t)KYRKA_AMBRY_AGE_EPOCH +
+	    ((time_t)ambry->expires * KYRKA_AMBRY_AGE_SECONDS_PER_DAY);
+
+	(void)clock_gettime(CLOCK_REALTIME, &ts);
+	if (expires < ts.tv_sec) {
+		kyrka_logmsg(ctx, "ambry generation 0x%08x is expired",
+		    ambry->generation);
+		return;
+	}
+
+	ctx->flags |= KYRKA_FLAG_SECRET_SET;
+	if (ctx->cathedral.ambry != 0)
+		ctx->flags |= KYRKA_FLAG_AMBRY_NEGOTIATION;
+
+	ctx->cathedral.ambry = ambry->generation;
+
+	nyfe_memcpy(ctx->cfg.secret, ambry->key, sizeof(ambry->key));
+	kyrka_mask(ctx, ctx->cfg.secret, sizeof(ctx->cfg.secret));
+
+	if (ctx->event != NULL) {
+		evt.type = KYRKA_EVENT_AMBRY_RECEIVED;
+		evt.ambry.generation = ambry->generation;
+		ctx->event(ctx, &evt, ctx->udata);
+	}
+}
+
+/*
+ * Derive an ambry unwrapping key and setup a kyrka_cipher so it
+ * can be used to unwrap the ambry key.
+ */
+static void *
+cathedral_ambry_key_derive(struct kyrka *ctx, struct kyrka_ambry_offer *ambry)
+{
+	u_int8_t		len;
+	struct nyfe_kmac256	kdf;
+	u_int16_t		tunnel;
+	void			*cipher;
+	u_int64_t		flock_src, flock_dst;
+	u_int8_t		okm[KYRKA_AMBRY_KEY_LEN];
+
+	PRECOND(ctx != NULL);
+	PRECOND(ambry != NULL);
 
 	nyfe_zeroize_register(okm, sizeof(okm));
 	nyfe_zeroize_register(&kdf, sizeof(kdf));
@@ -577,62 +651,8 @@ cathedral_ambry_unwrap(struct kyrka *ctx, struct kyrka_ambry_offer *ambry)
 	nyfe_kmac256_final(&kdf, okm, sizeof(okm));
 	nyfe_zeroize(&kdf, sizeof(kdf));
 
-	if ((cipher.ctx = kyrka_cipher_setup(okm, sizeof(okm))) == NULL) {
-		nyfe_zeroize(&okm, sizeof(okm));
-		return;
-	}
+	cipher = kyrka_cipher_setup(okm, sizeof(okm));
+	nyfe_zeroize(&okm, sizeof(okm));
 
-	nyfe_zeroize(okm, sizeof(okm));
-
-	aad.tunnel = tunnel;
-	aad.flock_src = flock_src;
-	aad.flock_dst = flock_dst;
-	aad.expires = ambry->expires;
-	aad.generation = ambry->generation;
-	nyfe_memcpy(aad.seed, ambry->seed, sizeof(ambry->seed));
-
-	cipher.aad = &aad;
-	cipher.aad_len = sizeof(aad);
-
-	cipher.nonce = nonce;
-	cipher.nonce_len = sizeof(nonce);
-	kyrka_offer_nonce(nonce, sizeof(nonce));
-
-	cipher.ct = ambry->key;
-	cipher.pt = ambry->key;
-	cipher.tag = &ambry->tag[0];
-	cipher.data_len = sizeof(ambry->key);
-
-	if (kyrka_cipher_decrypt(&cipher) == -1) {
-		kyrka_logmsg(ctx, "ambry integrity check failed");
-		return;
-	}
-
-	ambry->expires = be16toh(ambry->expires);
-	ambry->generation = be32toh(ambry->generation);
-
-	expires = (time_t)KYRKA_AMBRY_AGE_EPOCH +
-	    ((time_t)ambry->expires * KYRKA_AMBRY_AGE_SECONDS_PER_DAY);
-
-	(void)clock_gettime(CLOCK_REALTIME, &ts);
-	if (expires < ts.tv_sec) {
-		kyrka_logmsg(ctx, "ambry generation 0x%08x is expired",
-		    ambry->generation);
-		return;
-	}
-
-	ctx->flags |= KYRKA_FLAG_SECRET_SET;
-	if (ctx->cathedral.ambry != 0)
-		ctx->flags |= KYRKA_FLAG_AMBRY_NEGOTIATION;
-
-	ctx->cathedral.ambry = ambry->generation;
-
-	nyfe_memcpy(ctx->cfg.secret, ambry->key, sizeof(ambry->key));
-	kyrka_mask(ctx, ctx->cfg.secret, sizeof(ctx->cfg.secret));
-
-	if (ctx->event != NULL) {
-		evt.type = KYRKA_EVENT_AMBRY_RECEIVED;
-		evt.ambry.generation = ambry->generation;
-		ctx->event(ctx, &evt, ctx->udata);
-	}
+	return (cipher);
 }
