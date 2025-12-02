@@ -44,8 +44,8 @@ kyrka_version(void)
 {
 	static char	version[128];
 
-	(void)snprintf(version, sizeof(version), "%s (%s)",
-	    kyrka_build_rev, kyrka_build_date);
+	(void)snprintf(version, sizeof(version), "%s (%s) (api:%u)",
+	    kyrka_build_rev, kyrka_build_date, KYRKA_API_VERSION);
 
 	return (version);
 }
