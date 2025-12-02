@@ -44,6 +44,9 @@ extern "C" {
 /* The maximum number of federated cathedrals we can have. */
 #define KYRKA_CATHEDRALS_MAX		32
 
+/* The libkyrka API version, bumped when we break / change stuff. */
+#define KYRKA_API_VERSION		1
+
 /*
  * Library error codes.
  */
