@@ -13,10 +13,11 @@ KEMLIB_OBJS=	mlkem1024/$(OBJDIR)/cbd.o \
 		mlkem1024/$(OBJDIR)/symmetric-shake.o \
 		mlkem1024/$(OBJDIR)/verify.o
 
-KEMLIB=		mlkem1024/libmlkem1024.a
+KEMLIB=		mlkem1024/.built
 
-$(KEMLIB): $(LIBNYFE)
+mlkem1024/.built: $(LIBNYFE)
 	$(MAKE) -C mlkem1024
+	touch $@
 
 mlkem-tests: $(LIBNYFE)
 	$(MAKE) -C mlkem1024 tests

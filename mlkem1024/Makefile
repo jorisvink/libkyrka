@@ -4,8 +4,6 @@ CC?=cc
 AR?=ar
 OBJDIR?=obj
 
-LIB=libmlkem1024.a
-
 CFLAGS+=-std=c99 -pedantic -Wall -Werror -Wstrict-prototypes
 CFLAGS+=-Wmissing-prototypes -Wmissing-declarations -Wshadow
 CFLAGS+=-Wpointer-arith -Wcast-qual -Wsign-compare -O2 -fPIC
@@ -40,7 +38,7 @@ SRC=	src/cbd.c \
 
 OBJS=	$(SRC:src/%.c=$(OBJDIR)/%.o)
 
-$(LIB): $(OBJDIR) $(OBJS)
+all: $(OBJDIR) $(OBJS)
 
 $(OBJDIR):
 	@mkdir -p $(OBJDIR)
@@ -53,6 +51,6 @@ tests: nist_tests.c $(LIB) ../nyfe/libnyfe.a
 	./nist_tests
 
 clean:
-	rm -rf $(OBJDIR) $(LIB) nist_tests
+	rm -rf $(OBJDIR) $(LIB) nist_tests .built
 
 .PHONY: all clean force

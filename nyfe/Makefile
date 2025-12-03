@@ -4,8 +4,6 @@ CC?=cc
 AR?=ar
 OBJDIR?=obj
 
-LIB=libnyfe.a
-
 CFLAGS+=-std=c99 -pedantic -Wall -Werror -Wstrict-prototypes
 CFLAGS+=-Wmissing-prototypes -Wmissing-declarations -Wshadow
 CFLAGS+=-Wpointer-arith -Wcast-qual -Wsign-compare -O2 -fPIC
@@ -39,7 +37,10 @@ SRC=	src/agelas.c \
 
 OBJS=	$(SRC:src/%.c=$(OBJDIR)/%.o)
 
-$(LIB): $(OBJDIR) $(OBJS)
+all: .built
+
+.built: $(OBJDIR) $(OBJS)
+	touch .built
 
 $(OBJDIR):
 	@mkdir -p $(OBJDIR)
@@ -62,6 +63,6 @@ sync:
 	@echo "$(shell cd $(NYFE) && git rev-parse --short=8 HEAD)"
 
 clean:
-	rm -rf $(OBJDIR)
+	rm -rf $(OBJDIR) .built
 
 .PHONY: all clean force
