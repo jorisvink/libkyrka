@@ -5,9 +5,9 @@ AR?=ar
 OBJDIR?=obj
 LIB=libkyrka.a
 TOPDIR=$(CURDIR)
-LIBNYFE=nyfe/libnyfe.a
+LIBNYFE=nyfe/.built
 PC=$(OBJDIR)/libkyrka.pc
-VERSION=$(OBJDIR)/version.c
+VERSION=$(OBJDIR)/version
 SHARED_FLAGS=-shared
 
 EXTRA_LIBS=
@@ -73,7 +73,9 @@ else ifeq ("$(OSNAME)", "esp32")
 	CFLAGS+=-DPLATFORM_ESP32 -DNYFE_PLATFORM_ESP32
 endif
 
-all: $(LIB)
+all:
+	$(MAKE) $(OBJDIR)
+	$(MAKE) $(LIB)
 
 include $(KEM_MK_PATH)
 include $(CIPHER_MK_PATH)
@@ -94,25 +96,33 @@ LIBNYFE_OBJS=		nyfe/$(OBJDIR)/sha3.o \
 OBJS=	$(SRC:%.c=$(OBJDIR)/%.o)
 OBJS+=	$(OBJDIR)/version.o
 
-$(LIB): $(OBJDIR) $(LIBNYFE) $(KEMLIB) $(OBJS) $(VERSION) $(PC)
+$(LIB): $(LIBNYFE) $(KEMLIB) $(OBJS) $(VERSION).c $(PC)
 	$(AR) rcs $(LIB) $(OBJS) $(LIBNYFE_OBJS) $(KEMLIB_OBJS)
 
-$(VERSION): $(OBJDIR) force
+$(VERSION).c: force
 	@if [ -f RELEASE ]; then \
 		printf "const char *kyrka_build_rev = \"%s\";\n" \
-		    `cat RELEASE` > $(VERSION); \
+		    `cat RELEASE` > $(VERSION)_gen; \
 	elif [ -d .git ]; then \
 		GIT_REVISION=`git rev-parse --short=8 HEAD`; \
 		GIT_BRANCH=`git rev-parse --abbrev-ref HEAD`; \
-		rm -f $(VERSION); \
+		rm -f $(VERSION)_gen; \
 		printf "const char *kyrka_build_rev = \"%s-%s\";\n" \
-		    $$GIT_BRANCH $$GIT_REVISION > $(VERSION); \
+		    $$GIT_BRANCH $$GIT_REVISION > $(VERSION)_gen; \
 	else \
 		echo "No version information found (no .git or RELEASE)"; \
 		exit 1; \
 	fi
 	@printf "const char *kyrka_build_date = \"%s\";\n" \
-	    `date +"%Y-%m-%d"` >> $(VERSION);
+	    `date +"%Y-%m-%d"` >> $(VERSION)_gen;
+	@if [ -f $(VERSION).c ]; then \
+		cmp -s $(VERSION)_gen $(VERSION).c; \
+		if [ $$? -ne 0 ]; then \
+			cp $(VERSION)_gen $(VERSION).c; \
+		fi \
+	else \
+		cp $(VERSION)_gen $(VERSION).c; \
+	fi
 
 python-mod: $(OBJDIR)/python/libkyrka.so
 
@@ -140,7 +150,7 @@ install: $(LIB)
 $(LIBNYFE):
 	$(MAKE) -C nyfe
 
-src/kyrka.c: $(VERSION)
+src/kyrka.c: $(VERSION).c
 
 $(OBJDIR):
 	@mkdir -p $(OBJDIR)
@@ -174,7 +184,6 @@ tests-run:
 clean:
 	$(MAKE) -C nyfe clean
 	$(MAKE) -C mlkem1024 clean
-	rm -f $(VERSION)
 	rm -rf $(OBJDIR) $(LIB)
 
 .PHONY: all clean force
