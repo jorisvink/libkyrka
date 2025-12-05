@@ -376,6 +376,7 @@ cathedral_send_offer(struct kyrka *ctx, u_int64_t magic)
 
 	if (kyrka_offer_sign(ctx, op) == -1 ||
 	    kyrka_offer_encrypt(&okm, op) == -1) {
+		ctx->last_error = KYRKA_ERROR_INTERNAL;
 		nyfe_zeroize(&okm, sizeof(okm));
 		return (-1);
 	}
