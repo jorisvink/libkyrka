@@ -550,6 +550,7 @@ struct kyrka {
 		struct kyrka_xchg_info	remote;
 		u_int32_t		ttl;
 		u_int64_t		next;
+		int			force;
 		u_int32_t		flags;
 		u_int64_t		pulse;
 		u_int8_t		pk_frag;
