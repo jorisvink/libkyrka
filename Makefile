@@ -169,13 +169,11 @@ dist:
 	./dist-build/host-build.sh
 	./dist-build/android-build.sh
 	./dist-build/windows-build.sh
-	./dist-build/esp32s3-build.sh
 
 dist-clean:
 	./dist-build/host-clean.sh
 	./dist-build/android-clean.sh
 	./dist-build/windows-clean.sh
-	./dist-build/esp32s3-clean.sh
 
 tests-run:
 	env COVERAGE=1 SANITIZE=1 ./dist-build/host-build.sh
