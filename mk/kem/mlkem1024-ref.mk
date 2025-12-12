@@ -13,9 +13,9 @@ KEMLIB_OBJS=	mlkem1024/$(OBJDIR)/cbd.o \
 		mlkem1024/$(OBJDIR)/symmetric-shake.o \
 		mlkem1024/$(OBJDIR)/verify.o
 
-KEMLIB=		mlkem1024/.built
+KEMLIB=		mlkem1024/$(OBJDIR)/.built
 
-mlkem1024/.built: $(LIBNYFE)
+mlkem1024/$(OBJDIR)/.built: $(LIBNYFE)
 	$(MAKE) -C mlkem1024
 	touch $@
 

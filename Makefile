@@ -135,7 +135,8 @@ $(OBJDIR)/python/libkyrka.so: $(LIB) $(OBJDIR)/python.o
 $(PC): pkgconfig/libkyrka.pc
 	sed 's/%%EXTRA_LIBS%%/$(EXTRA_LIBS)/' $< > $@
 
-install: $(LIB)
+install:
+	$(MAKE)
 	mkdir -p $(DESTDIR)$(LIB_DIR)
 	mkdir -p $(DESTDIR)$(PKG_DIR)
 	mkdir -p $(DESTDIR)$(INCLUDE_DIR)
