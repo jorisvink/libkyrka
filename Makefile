@@ -124,7 +124,9 @@ $(VERSION).c: force
 		cp $(VERSION)_gen $(VERSION).c; \
 	fi
 
-python-mod: $(OBJDIR)/python/libkyrka.so
+python-mod:
+	$(MAKE) $(OBJDIR)
+	$(MAKE) $(OBJDIR)/python/libkyrka.so
 
 $(OBJDIR)/python/libkyrka.so: $(LIB) $(OBJDIR)/python.o
 	@mkdir -p $(OBJDIR)/python
