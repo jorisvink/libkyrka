@@ -222,21 +222,11 @@ struct kyrka_proto_tail {
 } __attribute__((packed));
 
 /*
- * The encapsulation header consisting of a normal ESP header
- * in combination with a 16 byte seed. The entire header is
- * used for mask generation when encapsulating an outgoing packet.
- * The mask is used to hide the inner ESP header and 64-bit pn.
+ * The encapsulation header consisting of a random 16-byte seed.
+ * This seed is used for mask generation which in turn is used to
+ * encapsulate or decapsulate the sanctum_proto_hdr.
  */
 struct kyrka_encap_hdr {
-	struct {
-		struct {
-			u_int32_t	spi;
-			u_int32_t	seq;
-		} esp;
-
-		u_int64_t		pn;
-	} ipsec;
-
 	u_int8_t			seed[16];
 } __attribute__((packed));
 
@@ -560,6 +550,7 @@ struct kyrka {
 		struct kyrka_xchg_info	remote;
 		u_int32_t		ttl;
 		u_int64_t		next;
+		int			force;
 		u_int32_t		flags;
 		u_int64_t		pulse;
 		u_int8_t		pk_frag;
@@ -675,7 +666,6 @@ void	*kyrka_packet_start(struct kyrka_packet *);
 void	*kyrka_packet_head(struct kyrka_packet *);
 void	*kyrka_packet_data(struct kyrka_packet *);
 void	*kyrka_packet_tail(struct kyrka_packet *);
-void	kyrka_packet_encapsulation_reset(struct kyrka *);
 int	kyrka_packet_crypto_checklen(struct kyrka_packet *);
 void	*kyrka_packet_tx_finalize(struct kyrka *, struct kyrka_packet *);
 

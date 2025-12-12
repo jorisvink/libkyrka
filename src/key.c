@@ -186,7 +186,11 @@ key_offer_check(struct kyrka *ctx, u_int64_t now)
 	offer_now = 0;
 	reason = NULL;
 
-	if (ctx->rx.spi != 0) {
+	if (ctx->offer.force) {
+		offer_now = 1;
+		reason = "re-sync";
+		ctx->offer.force = 0;
+	} else if (ctx->rx.spi != 0) {
 		ctx->offer.default_ttl = 15;
 		ctx->offer.default_next_send = 1;
 
@@ -526,8 +530,11 @@ key_exchange_decapsulate(struct kyrka *ctx, struct kyrka_offer *op, time_t now)
 
 	xchg = &op->data.offer.exchange;
 
-	if (xchg->spi != ctx->offer.local.spi)
+	if (xchg->spi != ctx->offer.local.spi) {
+		key_offer_clear(ctx);
+		ctx->offer.force = 1;
 		return;
+	}
 
 	if (!(ctx->offer.flags & KYRKA_OFFER_INCLUDE_KEM_PK))
 		return;

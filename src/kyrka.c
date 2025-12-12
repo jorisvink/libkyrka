@@ -318,7 +318,6 @@ kyrka_encap_key_load(KYRKA *ctx, const void *key, size_t len)
 	nyfe_memcpy(ctx->encap.tek, key, len);
 
 	ctx->flags |= KYRKA_FLAG_ENCAPSULATION;
-	kyrka_packet_encapsulation_reset(ctx);
 
 	return (0);
 }

@@ -114,12 +114,8 @@ kyrka_packet_tx_finalize(struct kyrka *ctx, struct kyrka_packet *pkt)
 	hdr = kyrka_packet_start(pkt);
 	data = kyrka_packet_head(pkt);
 
-	hdr->ipsec.pn = ctx->encap.pn++;
-	hdr->ipsec.esp.spi = htobe32(ctx->encap.spi);
-	hdr->ipsec.esp.seq = htobe32(hdr->ipsec.pn & 0xffffffff);
-	hdr->ipsec.pn = htobe64(hdr->ipsec.pn);
-
 	kyrka_random_bytes(hdr->seed, sizeof(hdr->seed));
+
 	nyfe_kmac256_init(&kdf, ctx->encap.tek, sizeof(ctx->encap.tek),
 	    KYRKA_ENCAP_LABEL, sizeof(KYRKA_ENCAP_LABEL) - 1);
 	nyfe_kmac256_update(&kdf, hdr, sizeof(*hdr));
@@ -134,29 +130,5 @@ kyrka_packet_tx_finalize(struct kyrka *ctx, struct kyrka_packet *pkt)
 
 	pkt->length += sizeof(*hdr);
 
-	if (ctx->encap.pn >= PACKET_ENCAP_PKT_MAX)
-		kyrka_packet_encapsulation_reset(ctx);
-
 	return (hdr);
-}
-
-/*
- * Resets the pn and generates a new random spi for packet encapsulation.
- */
-void
-kyrka_packet_encapsulation_reset(struct kyrka *ctx)
-{
-	union kyrka_event	evt;
-
-	PRECOND(ctx != NULL);
-	PRECOND(ctx->flags & KYRKA_FLAG_ENCAPSULATION);
-
-	ctx->encap.pn = 1;
-	kyrka_random_bytes(&ctx->encap.spi, sizeof(ctx->encap.spi));
-
-	if (ctx->event != NULL) {
-		evt.type = KYRKA_EVENT_ENCAP_INFO;
-		evt.encap.spi = ctx->encap.spi;
-		ctx->event(ctx, &evt, ctx->udata);
-	}
 }
