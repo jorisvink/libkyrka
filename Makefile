@@ -124,7 +124,9 @@ $(VERSION).c: force
 		cp $(VERSION)_gen $(VERSION).c; \
 	fi
 
-python-mod: $(OBJDIR)/python/libkyrka.so
+python-mod:
+	$(MAKE) $(OBJDIR)
+	$(MAKE) $(OBJDIR)/python/libkyrka.so
 
 $(OBJDIR)/python/libkyrka.so: $(LIB) $(OBJDIR)/python.o
 	@mkdir -p $(OBJDIR)/python
@@ -133,7 +135,8 @@ $(OBJDIR)/python/libkyrka.so: $(LIB) $(OBJDIR)/python.o
 $(PC): pkgconfig/libkyrka.pc
 	sed 's/%%EXTRA_LIBS%%/$(EXTRA_LIBS)/' $< > $@
 
-install: $(LIB)
+install:
+	$(MAKE)
 	mkdir -p $(DESTDIR)$(LIB_DIR)
 	mkdir -p $(DESTDIR)$(PKG_DIR)
 	mkdir -p $(DESTDIR)$(INCLUDE_DIR)
@@ -167,13 +170,11 @@ dist:
 	./dist-build/host-build.sh
 	./dist-build/android-build.sh
 	./dist-build/windows-build.sh
-	./dist-build/esp32s3-build.sh
 
 dist-clean:
 	./dist-build/host-clean.sh
 	./dist-build/android-clean.sh
 	./dist-build/windows-clean.sh
-	./dist-build/esp32s3-clean.sh
 
 tests-run:
 	env COVERAGE=1 SANITIZE=1 ./dist-build/host-build.sh

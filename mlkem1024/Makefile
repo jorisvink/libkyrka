@@ -51,6 +51,6 @@ tests: nist_tests.c $(LIB) ../nyfe/libnyfe.a
 	./nist_tests
 
 clean:
-	rm -rf $(OBJDIR) $(LIB) nist_tests .built
+	rm -rf $(OBJDIR) $(LIB) nist_tests
 
 .PHONY: all clean force
