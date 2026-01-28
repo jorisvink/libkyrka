@@ -10,7 +10,6 @@ DESTDIR=ios-arm64 \
     CROSS_BUILD=1 \
     OBJDIR=obj-iosarm64 \
     CC=$CC \
-    CIPHER=mbedtls-aes-gcm \
     make clean
 
 rm -rf ios-arm64

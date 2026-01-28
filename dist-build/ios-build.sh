@@ -12,4 +12,15 @@ xcodebuild -create-xcframework \
     -headers ios-arm64/include/ \
     -library ios-simulator-arm64/lib/libkyrka.a \
     -headers ios-simulator-arm64/include/ \
-    -output libkyrka.xcframework
+    -output Clibkyrka.xcframework
+
+cat >> Clibkyrka.xcframework/ios-arm64/Headers/libkyrka/module.modulemap << _EOF
+module Clibkyrka {
+       header "libkyrka.h"
+       header "libkyrka-kdf.h"
+       export *
+}
+_EOF
+
+cp Clibkyrka.xcframework/ios-arm64/Headers/libkyrka/module.modulemap \
+   Clibkyrka.xcframework/ios-arm64-simulator/Headers/libkyrka/module.modulemap

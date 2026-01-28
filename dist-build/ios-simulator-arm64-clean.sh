@@ -10,7 +10,6 @@ DESTDIR=ios-simulator-arm64 \
     CROSS_BUILD=1 \
     OBJDIR=obj-ios-simulator-arm64 \
     CC=$CC \
-    CIPHER=mbedtls-aes-gcm \
     make clean
  
 rm -rf ios-simulator-arm64
