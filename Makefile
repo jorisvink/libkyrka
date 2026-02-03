@@ -55,6 +55,11 @@ ifeq ("$(COVERAGE)", "1")
 	CFLAGS+=-fprofile-arcs -ftest-coverage
 endif
 
+ifneq ("$(KYRKA_NO_INRI_API)", "1")
+	SRC+=src/inri.c
+	CFLAGS+=-DKYRKA_INRI_API
+endif
+
 ifeq ("$(OSNAME)", "")
 OSNAME=$(shell uname -s | sed -e 's/[-_].*//g' | tr A-Z a-z)
 endif

@@ -590,6 +590,10 @@ struct kyrka {
 	} cathedral;
 };
 
+#if !defined(KYRKA_NO_INRI_API)
+#include "libkyrka-inri.h"
+#endif
+
 /* The build date and revision. */
 extern const char	*kyrka_build_rev;
 extern const char	*kyrka_build_date;
