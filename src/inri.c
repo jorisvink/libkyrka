@@ -98,6 +98,11 @@ kyrka_inri_alloc(void)
 	inri->fd = -1;
 	inri->interval = 1;
 
+	inri->cathedral.sin_family = AF_INET;
+#if !defined(__linux__)
+	inri->cathedral.sin_len = sizeof(inri->cathedral);
+#endif
+
 	if ((inri->fd = socket(AF_INET, SOCK_DGRAM, 0)) == -1) {
 		kyrka_inri_free(inri);
 		return (NULL);
