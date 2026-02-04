@@ -577,13 +577,18 @@ struct kyrka {
 	struct {
 		struct kyrka_ifc	ifc;
 		u_int32_t		ambry;
+		u_int64_t		ambry_recv;
+		int			ambry_switch;
+
 		u_int32_t		identity;
 		u_int64_t		flock_src;
 		u_int64_t		flock_dst;
+
 		u_int16_t		group;
 		int			hidden;
 		int			remembrance;
 		u_int32_t		liturgy_flags;
+
 		u_int8_t		secret[KYRKA_KEY_LENGTH];
 		u_int8_t		peers[KYRKA_PEERS_PER_FLOCK];
 		u_int8_t		sk[KYRKA_ED25519_SIGN_SECRET_LENGTH];
