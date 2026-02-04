@@ -635,13 +635,13 @@ key_exchange_finalize(struct kyrka *ctx, struct kyrka_offer *op,
 			goto cleanup;
 	}
 
- 	if (ctx->event != NULL) {
+	if (ctx->event != NULL) {
 		evt.type = KYRKA_EVENT_KEYS_INFO;
 		evt.keys.tx_spi = ctx->tx.spi;
 		evt.keys.rx_spi = ctx->rx.spi;
 		evt.keys.peer_id = exchange->id;
- 		ctx->event(ctx, &evt, ctx->udata);
- 	}
+		ctx->event(ctx, &evt, ctx->udata);
+	}
 
 cleanup:
 	nyfe_zeroize(okm, sizeof(okm));
