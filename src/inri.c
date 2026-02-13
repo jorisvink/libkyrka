@@ -30,6 +30,7 @@
 #include <unistd.h>
 
 #include "libkyrka-int.h"
+#include "libkyrka-inri.h"
 
 static void	inri_context_event(KYRKA *, union kyrka_event *, void *);
 static void	inri_heaven_ifc(const void *, size_t, u_int64_t, void *);

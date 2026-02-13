@@ -10,6 +10,7 @@ DESTDIR=esp32s3 \
     PREFIX= \
     CROSS_BUILD=1 \
     OBJDIR=obj-esp32s3 \
+    KYRKA_NO_INRI_API=1 \
     CC=$CC \
     AR=$AR \
     CFLAGS="-DESP_PLATFORM -D_GNU_SOURCE" \
