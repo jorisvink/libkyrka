@@ -22,8 +22,6 @@
 #include <time.h>
 #include <unistd.h>
 
-#include <sodium.h>
-
 #include "libkyrka-int.h"
 
 static void	key_offer_clear(struct kyrka *);
