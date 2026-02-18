@@ -63,7 +63,13 @@ kyrka_asymmetry_derive(struct kyrka_kex *kx, u_int8_t *out, size_t len)
 	PRECOND(out != NULL);
 	PRECOND(len == crypto_scalarmult_curve25519_SCALARBYTES);
 
+	if (sodium_is_zero(kx->remote, sizeof(kx->remote)))
+		return (-1);
+
 	if (crypto_scalarmult_curve25519(out, kx->private, kx->remote) == -1)
+		return (-1);
+
+	if (sodium_is_zero(out, len))
 		return (-1);
 
 	return (0);

@@ -8,6 +8,7 @@
 DESTDIR=x86_64-w64-mingw32.static-gcc \
     PREFIX= \
     CROSS_BUILD=1 \
+    KYRKA_NO_INRI_API=1 \
     OBJDIR=obj-windows \
     CC=x86_64-w64-mingw32.static-gcc \
     OSNAME=windows \

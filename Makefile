@@ -55,6 +55,11 @@ ifeq ("$(COVERAGE)", "1")
 	CFLAGS+=-fprofile-arcs -ftest-coverage
 endif
 
+ifneq ("$(KYRKA_NO_INRI_API)", "1")
+	SRC+=src/inri.c
+	CFLAGS+=-DKYRKA_INRI_API
+endif
+
 ifeq ("$(OSNAME)", "")
 OSNAME=$(shell uname -s | sed -e 's/[-_].*//g' | tr A-Z a-z)
 endif
@@ -71,6 +76,8 @@ else ifeq ("$(OSNAME)", "windows")
 	CFLAGS+=-DPLATFORM_WINDOWS -DNYFE_PLATFORM_WINDOWS
 else ifeq ("$(OSNAME)", "esp32")
 	CFLAGS+=-DPLATFORM_ESP32 -DNYFE_PLATFORM_ESP32
+else ifeq ("$(OSNAME)", "ios")
+	CFLAGS+=-DPLATFORM_IOS -DNYFE_PLATFORM_IOS
 endif
 
 all:

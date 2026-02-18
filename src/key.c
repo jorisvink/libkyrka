@@ -18,10 +18,9 @@
 
 #include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
 #include <time.h>
 #include <unistd.h>
-
-#include <sodium.h>
 
 #include "libkyrka-int.h"
 
@@ -65,6 +64,26 @@ kyrka_key_manage(struct kyrka *ctx)
 	}
 
 	(void)clock_gettime(CLOCK_MONOTONIC, &ts);
+
+	if (ctx->cathedral.ambry_switch &&
+	    (ts.tv_sec - ctx->cathedral.ambry_recv) >= 75) {
+		ctx->offer.force = 0;
+		ctx->cathedral.ambry_switch = 0;
+
+		kyrka_logmsg(ctx, "unable to renegotiate with peer "
+		    "75 seconds after ambry swap, clearing keys");
+
+		if (ctx->offer.local.spi != 0)
+			key_offer_clear(ctx);
+
+		if (ctx->rx.cipher != NULL)
+			kyrka_cipher_cleanup(ctx->rx.cipher);
+		if (ctx->tx.cipher != NULL)
+			kyrka_cipher_cleanup(ctx->tx.cipher);
+
+		memset(&ctx->rx, 0, sizeof(ctx->rx));
+		memset(&ctx->tx, 0, sizeof(ctx->tx));
+	}
 
 	if (ctx->offer.local.spi != 0) {
 		if (ctx->offer.local.spi == ctx->rx.spi && ctx->rx.pkt > 0) {
@@ -312,8 +331,14 @@ key_offer_send(struct kyrka *ctx, u_int64_t now)
 		}
 	}
 
-	if (ctx->offer.ttl == 0)
+	if (ctx->offer.ttl == 0) {
 		key_offer_clear(ctx);
+
+		if (ctx->cathedral.ambry_switch) {
+			ctx->offer.force = 1;
+			ctx->offer.next = now + 10;
+		}
+	}
 
 	return (0);
 }
@@ -556,6 +581,8 @@ key_exchange_decapsulate(struct kyrka *ctx, struct kyrka_offer *op, time_t now)
 	ctx->offer.flags &= ~KYRKA_OFFER_INCLUDE_KEM_PK;
 	kyrka_mlkem1024_decapsulate(&ctx->offer.local.kem);
 	key_exchange_finalize(ctx, op, now, KYRKA_KEY_DIRECTION_TX);
+
+	ctx->cathedral.ambry_switch = 0;
 }
 
 /*
@@ -635,13 +662,13 @@ key_exchange_finalize(struct kyrka *ctx, struct kyrka_offer *op,
 			goto cleanup;
 	}
 
- 	if (ctx->event != NULL) {
+	if (ctx->event != NULL) {
 		evt.type = KYRKA_EVENT_KEYS_INFO;
 		evt.keys.tx_spi = ctx->tx.spi;
 		evt.keys.rx_spi = ctx->rx.spi;
 		evt.keys.peer_id = exchange->id;
- 		ctx->event(ctx, &evt, ctx->udata);
- 	}
+		ctx->event(ctx, &evt, ctx->udata);
+	}
 
 cleanup:
 	nyfe_zeroize(okm, sizeof(okm));
