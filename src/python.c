@@ -14,11 +14,11 @@
  * OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  */
 
+#include <Python.h>
+
 #include <sys/types.h>
 
 #define PY_SSIZE_T_CLEAN	1
-
-#include <Python.h>
 
 #include <libkyrka-int.h>
 #include <stdarg.h>
