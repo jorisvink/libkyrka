@@ -175,7 +175,9 @@ kyrka_base_key(const u_int8_t *secret, size_t secret_len, int purpose,
 	    purpose == KYRKA_KDF_PURPOSE_CATHEDRAL_OFFER ||
 	    purpose == KYRKA_KDF_PURPOSE_KEY_TRAFFIC_RX ||
 	    purpose == KYRKA_KDF_PURPOSE_KEY_TRAFFIC_TX ||
-	    purpose == KYRKA_KDF_PURPOSE_KEY_KEK_UNWRAP);
+	    purpose == KYRKA_KDF_PURPOSE_KEY_KEK_UNWRAP ||
+	    purpose == KYRKA_KDF_PURPOSE_SHROUD_PEER ||
+	    purpose == KYRKA_KDF_PURPOSE_SHROUD_CATHEDRAL);
 
 	switch (purpose) {
 	case KYRKA_KDF_PURPOSE_PEER_OFFER:
@@ -192,6 +194,12 @@ kyrka_base_key(const u_int8_t *secret, size_t secret_len, int purpose,
 		break;
 	case KYRKA_KDF_PURPOSE_KEY_KEK_UNWRAP:
 		label = KYRKA_KEY_KEK_UNWRAP_KDF_LABEL;
+		break;
+	case KYRKA_KDF_PURPOSE_SHROUD_PEER:
+		label = KYRKA_SHROUD_KEY_KDF_LABEL;
+		break;
+	case KYRKA_KDF_PURPOSE_SHROUD_CATHEDRAL:
+		label = KYRKA_CATHEDRAL_SHROUD_KEY_KDF_LABEL;
 		break;
 	default:
 		abort();
@@ -218,6 +226,5 @@ kyrka_base_key(const u_int8_t *secret, size_t secret_len, int purpose,
 	}
 
 	nyfe_kmac256_final(&kdf, out, out_len);
-
 	nyfe_zeroize(&kdf, sizeof(kdf));
 }

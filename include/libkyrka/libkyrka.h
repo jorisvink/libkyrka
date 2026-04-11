@@ -45,7 +45,7 @@ extern "C" {
 #define KYRKA_CATHEDRALS_MAX		32
 
 /* The libkyrka API version, bumped when we break / change stuff. */
-#define KYRKA_API_VERSION		1
+#define KYRKA_API_VERSION		2
 
 /*
  * Library error codes.
@@ -67,6 +67,7 @@ extern "C" {
 #define KYRKA_ERROR_PACKET_ERROR	14
 #define KYRKA_ERROR_NO_COSK		15
 #define KYRKA_ERROR_TIMEOUT		16
+#define KYRKA_ERROR_SHROUD_NO_KEYS	17
 
 /*
  * Events that can occur and can be seen if an event callback was
@@ -79,8 +80,7 @@ extern "C" {
 #define KYRKA_EVENT_AMBRY_RECEIVED		5
 #define KYRKA_EVENT_LITURGY_RECEIVED		6
 #define KYRKA_EVENT_REMEMBRANCE_RECEIVED	7
-#define KYRKA_EVENT_ENCAP_INFO			8
-#define KYRKA_EVENT_LOGMSG			9
+#define KYRKA_EVENT_LOGMSG			8
 
 struct kyrka_event_encap_info {
 	u_int32_t			type;
@@ -138,6 +138,34 @@ union kyrka_event {
 	struct kyrka_event_remembrance		remembrance;
 };
 
+/* The maximum length of the user data we carry per packet. */
+#define KYRKA_PACKET_DATA_LEN		1500
+
+/*
+ * The total space available in a packet buffer, we're lazy and just
+ * made it large enough to hold the head room, packet data and
+ * any tail that is going to be added to it.
+ */
+#define KYRKA_PACKET_MAX_LEN		(KYRKA_PACKET_DATA_LEN + 128)
+
+/* Use the cathedral shroud key when shrouding/unshrouding a packet. */
+#define KYRKA_PACKET_SHROUD_CATHEDRAL	1
+
+/* Use the peer shroud key when shrouding/unshrouding a packet. */
+#define KYRKA_PACKET_SHROUD_PEER	2
+
+/*
+ * A packet that can be used as input to kyrka_purgatory_input()
+ * or kyrka_heaven_input().
+ *
+ * A packet is also handed to the ifc callbacks.
+ */
+struct kyrka_packet {
+	size_t		length;
+	u_int32_t	shroud;
+	u_int8_t	data[KYRKA_PACKET_MAX_LEN];
+};
+
 /*
  * Data structure used to configure a cathedral.
  */
@@ -158,7 +186,7 @@ struct kyrka_cathedral_cfg {
 	int		hidden;
 	int		remembrance;
 
-	void		(*send)(const void *, size_t, u_int64_t, void *);
+	void		(*send)(struct kyrka_packet *, u_int64_t, void *);
 };
 
 /* A KYRKA context as an opaque. */
@@ -174,6 +202,8 @@ u_int32_t	kyrka_last_error(KYRKA *);
 void	kyrka_ctx_free(KYRKA *);
 int	kyrka_peer_timeout(KYRKA *);
 void	kyrka_emergency_erase(void);
+int	kyrka_shroud_enable(KYRKA *);
+int	kyrka_p2p_active(KYRKA *, int);
 KYRKA	*kyrka_ctx_alloc(void (*event)(KYRKA *, union kyrka_event *, void *),
 	    void *);
 
@@ -188,12 +218,12 @@ int	kyrka_cathedral_cosk_load(KYRKA *, const void *, size_t);
 int	kyrka_cathedral_secret_load(KYRKA *, const void *, size_t);
 
 int	kyrka_heaven_ifc(KYRKA *,
-	    void (*cb)(const void *, size_t, u_int64_t, void *), void *);
-int	kyrka_heaven_input(KYRKA *, const void *, size_t);
+	    void (*cb)(struct kyrka_packet *, u_int64_t, void *), void *);
+int	kyrka_heaven_input(KYRKA *, struct kyrka_packet *);
 
 int	kyrka_purgatory_ifc(KYRKA *,
-	    void (*cb)(const void *, size_t, u_int64_t, void *), void *);
-int	kyrka_purgatory_input(KYRKA *, const void *, size_t);
+	    void (*cb)(struct kyrka_packet *, u_int64_t, void *), void *);
+int	kyrka_purgatory_input(KYRKA *, struct kyrka_packet *);
 
 int	kyrka_cathedral_notify(KYRKA *);
 int	kyrka_cathedral_nat_detection(KYRKA *);
@@ -203,6 +233,11 @@ int	kyrka_cathedral_config(KYRKA *, struct kyrka_cathedral_cfg *);
 int	kyrka_key_material_copy(KYRKA *, KYRKA *);
 int	kyrka_vicar_load(KYRKA *, const char *, const char *,
 	    struct kyrka_cathedral_cfg *);
+
+void	*kyrka_packet_data(struct kyrka_packet *);
+void	*kyrka_packet_recvbuf(struct kyrka *, struct kyrka_packet *, size_t *);
+void	*kyrka_packet_sendbuf(struct kyrka *, struct kyrka_packet *, size_t *);
+void	*kyrka_packet_databuf(struct kyrka *, struct kyrka_packet *, size_t *);
 
 /*
  * The INRI api.

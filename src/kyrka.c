@@ -83,6 +83,7 @@ kyrka_ctx_alloc(void (*event)(struct kyrka *, union kyrka_event *, void *),
 
 	ctx->offer.default_ttl = 15;
 	ctx->offer.default_next_send = 1;
+	ctx->flags = KYRKA_FLAG_P2P_ACTIVE;
 
 	nyfe_zeroize_register(ctx, sizeof(*ctx));
 
@@ -352,6 +353,48 @@ kyrka_peer_timeout(KYRKA *ctx)
 }
 
 /*
+ * Enable shroud on a context, cannot be turned off once enabled.
+ */
+int
+kyrka_shroud_enable(KYRKA *ctx)
+{
+	if (ctx == NULL)
+		return (-1);
+
+	ctx->flags |= KYRKA_FLAG_USE_SHROUD;
+
+	return (0);
+}
+
+/*
+ * Lets the context know if we are in an active p2p tunnel or if
+ * we are perhaps being relayed. This is important when using shroud
+ * so internally generated offers can be shrouded with the right key.
+ *
+ * If you get this wrong, at worst the receiving party will not be able
+ * to unshroud the packet, but no meta-data is leaked.
+ */
+int
+kyrka_p2p_active(KYRKA *ctx, int active)
+{
+	if (ctx == NULL)
+		return (-1);
+
+	if (active != 0 && active != 1) {
+		ctx->last_error = KYRKA_ERROR_PARAMETER;
+		return (-1);
+	}
+
+	if (active) {
+		ctx->flags |= KYRKA_FLAG_P2P_ACTIVE;
+	} else {
+		ctx->flags &= ~KYRKA_FLAG_P2P_ACTIVE;
+	}
+
+	return (0);
+}
+
+/*
  * Perform an "emergency" erase of all data allocated by all KYRKA contexts.
  *
  * You cannot safely use *ANY* allocated KYRKA context after calling
@@ -446,7 +489,8 @@ kyrka_mask(KYRKA *ctx, u_int8_t *secret, size_t len)
 
 	PRECOND(ctx != NULL);
 	PRECOND(secret != NULL);
-	PRECOND(len == KYRKA_KEY_LENGTH ||
+	PRECOND(len == KYRKA_SHROUD_ID_LENGTH ||
+	    len == KYRKA_KEY_LENGTH ||
 	    len == KYRKA_ED25519_SIGN_SECRET_LENGTH);
 
 	ptr = (uintptr_t)secret;

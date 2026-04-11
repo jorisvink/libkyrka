@@ -99,6 +99,12 @@
 /* The length of the seed in a key offer packet. */
 #define KYRKA_KEY_OFFER_SALT_LEN		64
 
+/* The shroud identity length in bytes. */
+#define KYRKA_SHROUD_ID_LENGTH			16
+
+/* The shroud seed length in bytes. */
+#define KYRKA_SHROUD_SEED_LENGTH		16
+
 /* Length of a seed using for deriving Ambry wrapping keys. */
 #define KYRKA_AMBRY_SEED_LEN			64
 
@@ -166,12 +172,19 @@
 #define KYRKA_KDF_PURPOSE_KEY_TRAFFIC_TX	3
 #define KYRKA_KDF_PURPOSE_KEY_KEK_UNWRAP	4
 #define KYRKA_KDF_PURPOSE_CATHEDRAL_OFFER	5
+#define KYRKA_KDF_PURPOSE_SHROUD_CATHEDRAL	6
+#define KYRKA_KDF_PURPOSE_SHROUD_PEER		7
 
 /* The epoch for when expiration time account began. */
 #define KYRKA_AMBRY_AGE_EPOCH			1697855580
 
 /* Much like TAI and the dark side we deal in absolutes. */
 #define KYRKA_AMBRY_AGE_SECONDS_PER_DAY		86400
+
+/* The number of domains per flock. */
+#define KYRKA_FLOCK_DOMAIN_BITS		8
+#define KYRKA_FLOCK_DOMAINS		(1 << KYRKA_FLOCK_DOMAIN_BITS)
+#define KYRKA_FLOCK_DOMAIN_MASK		(KYRKA_FLOCK_DOMAINS - 1)
 
 /*
  * The ambry AAD data.
@@ -197,7 +210,7 @@ struct kyrka_ambry_entry {
 } __attribute__((packed));
 
 /*
- * An encrypted packet its head, includes the ESP header, the
+ * An encrypted packet its header, includes the "ESP" header, the
  * 64-bit packet number used as part of the nonce later and
  * potential flock src/dst numbers.
  */
@@ -215,19 +228,21 @@ struct kyrka_proto_hdr {
 	} flock;
 } __attribute__((packed));
 
-/* ESP trailer, added to the plaintext before encrypted. */
+/* Sanctum protocol trailer, added to the plaintext before encrypted. */
 struct kyrka_proto_tail {
-	u_int8_t		pad;
+	u_int8_t		reserved;
 	u_int8_t		next;
 } __attribute__((packed));
 
 /*
- * The encapsulation header consisting of a random 16-byte seed.
- * This seed is used for mask generation which in turn is used to
- * encapsulate or decapsulate the sanctum_proto_hdr.
+ * The shroud header is used for masking away meta-data from packets.
+ * It consists of the rolling identifier for our peer and a 16-byte
+ * seed used for the mask generation.
  */
-struct kyrka_encap_hdr {
-	u_int8_t			seed[16];
+struct kyrka_shroud_hdr {
+	u_int8_t		id[KYRKA_SHROUD_ID_LENGTH];
+	u_int8_t		seed_id[KYRKA_SHROUD_SEED_LENGTH];
+	u_int8_t		seed_data[KYRKA_SHROUD_SEED_LENGTH];
 } __attribute__((packed));
 
 /*
@@ -236,28 +251,15 @@ struct kyrka_encap_hdr {
  * a normal ESP header + packet number. So this is essentially
  * sizeof(struct kyrka_offer_hdr) - KYRKA_KEY_OFFER_SALT_LEN.
  */
-#define KYRKA_ENCAP_MASK_LEN		\
+#define KYRKA_SHROUD_MASK_LEN		\
     (sizeof(struct kyrka_offer_hdr) - KYRKA_KEY_OFFER_SALT_LEN)
 
-/* Preseed is used for when outer encapsulation is enabled. */
-#define KYRKA_PACKET_ENCAP_LEN		sizeof(struct kyrka_encap_hdr)
-
 /* The header starts after our potential encapsulation. */
-#define KYRKA_PACKET_HEAD_OFFSET	KYRKA_PACKET_ENCAP_LEN
+#define KYRKA_PACKET_HEAD_OFFSET	sizeof(struct kyrka_shroud_hdr)
 
 /* The data starts after the header. */
 #define KYRKA_PACKET_DATA_OFFSET	\
     (KYRKA_PACKET_HEAD_OFFSET + sizeof(struct kyrka_proto_hdr))
-
-/* The maximum length of the user data we carry per packet. */
-#define KYRKA_PACKET_DATA_LEN		1500
-
-/*
- * The total space available in a packet buffer, we're lazy and just
- * made it large enough to hold the head room, packet data and
- * any tail that is going to be added to it.
- */
-#define KYRKA_PACKET_MAX_LEN		(KYRKA_PACKET_DATA_LEN + 64)
 
 /*
  * A security assocation.
@@ -273,25 +275,11 @@ struct kyrka_sa {
 };
 
 /*
- * A packet, all internal functions handling packets use this
- * data structure to pass data back and forth.
- *
- * Incoming packets are copied into a kyrka_packet before they
- * are handled. While this isn't ideal due to the disconnected
- * i/o we don't actually know how packets arrive so we do it
- * as such.
- */
-struct kyrka_packet {
-	size_t		length;
-	u_int8_t	data[KYRKA_PACKET_MAX_LEN];
-};
-
-/*
  * A virtual interface.
  */
 struct kyrka_ifc {
 	void		*udata;
-	void		(*send)(const void *, size_t, u_int64_t, void *);
+	void		(*send)(struct kyrka_packet *, u_int64_t, void *);
 };
 
 /*
@@ -316,7 +304,7 @@ struct kyrka_ifc {
 #define KYRKA_OFFER_TYPE_EXCHANGE	6
 
 /* The maximum number of fragments sent in a KEM offer. */
-#define KYRKA_OFFER_KEM_FRAGMENTS		4
+#define KYRKA_OFFER_KEM_FRAGMENTS	4
 
 /* The value we get when all packets are received. */
 #define KYRKA_OFFER_KEM_FRAGMENTS_DONE	\
@@ -495,6 +483,16 @@ struct kyrka_kex {
 /* If a cathedral offer signing key (COSK) was set. */
 #define KYRKA_FLAG_CATHEDRAL_SIGNING_KEY	(1 << 6)
 
+/* Are we shrouding packets or not? */
+#define KYRKA_FLAG_USE_SHROUD			(1 << 7)
+
+/* Is our tunnel running in a p2p fashion or not? */
+#define KYRKA_FLAG_P2P_ACTIVE			(1 << 8)
+
+/* Explicit flags for shroud */
+#define KYRKA_SHROUD_PEER_KEY			(1 << 0)
+#define KYRKA_SHROUD_CATHEDRAL_KEY		(1 << 1)
+
 /* XXX */
 union kyrka_event;
 
@@ -593,6 +591,19 @@ struct kyrka {
 		u_int8_t		peers[KYRKA_PEERS_PER_FLOCK];
 		u_int8_t		sk[KYRKA_ED25519_SIGN_SECRET_LENGTH];
 	} cathedral;
+
+	/* Shroud config */
+	struct {
+		time_t			regen;
+		u_int32_t		flags;
+
+		u_int8_t		peer[KYRKA_KEY_LENGTH];
+		u_int8_t		cathedral[KYRKA_KEY_LENGTH];
+
+		u_int8_t		id[KYRKA_SHROUD_ID_LENGTH];
+		u_int8_t		base[KYRKA_SHROUD_ID_LENGTH];
+		u_int8_t		seed[KYRKA_SHROUD_SEED_LENGTH];
+	} shroud;
 };
 
 /* The build date and revision. */
@@ -637,7 +648,7 @@ int	pqcrystals_kyber1024_ref_dec(u_int8_t *, const u_int8_t *,
 	    const u_int8_t *);
 
 /* src/cathedral.c */
-int	kyrka_cathedral_decrypt(struct kyrka *, const void *, size_t);
+int	kyrka_cathedral_decrypt(struct kyrka *, struct kyrka_packet *);
 
 /* src/kdf.c */
 void	kyrka_base_key(const u_int8_t *, size_t, int, void *,
@@ -647,8 +658,22 @@ int	kyrka_traffic_kdf(struct kyrka *, struct kyrka_kex *,
 void	kyrka_offer_kdf(struct kyrka *, const u_int8_t *, size_t, const char *,
 	    struct kyrka_key *, void *, size_t, u_int64_t, u_int64_t);
 
+/* src/shroud.c */
+void	kyrka_shroud_kdf(struct kyrka *, int);
+void	kyrka_shroud_identity(struct kyrka *);
+void	kyrka_shroud_base_identity(struct kyrka *);
+int	kyrka_shroud_has_key(struct kyrka *, u_int32_t);
+int	kyrka_shroud_xor(struct kyrka *, struct kyrka_packet *);
+int	kyrka_shroud_packet(struct kyrka *, struct kyrka_packet *);
+
+/* src/packet.c */
+void	*kyrka_packet_head(struct kyrka_packet *);
+void	*kyrka_packet_start(struct kyrka_packet *);
+void	*kyrka_packet_tail(struct kyrka_packet *);
+int	kyrka_packet_crypto_checklen(struct kyrka *, struct kyrka_packet *);
+
 /* src/key.c */
-void	kyrka_key_offer_decrypt(struct kyrka *, const void *, size_t);
+void	kyrka_key_offer_decrypt(struct kyrka *, struct kyrka_packet *);
 int	kyrka_key_load_from_path(struct kyrka *,
 	    const char *, u_int8_t *, size_t);
 
@@ -665,13 +690,5 @@ int	kyrka_offer_decrypt(struct kyrka_key *, struct kyrka_offer *, int);
 
 struct kyrka_offer	*kyrka_offer_init(struct kyrka_packet *,
 			    u_int32_t, u_int64_t, u_int8_t);
-
-/* src/packet.c */
-void	*kyrka_packet_start(struct kyrka_packet *);
-void	*kyrka_packet_head(struct kyrka_packet *);
-void	*kyrka_packet_data(struct kyrka_packet *);
-void	*kyrka_packet_tail(struct kyrka_packet *);
-int	kyrka_packet_crypto_checklen(struct kyrka_packet *);
-void	*kyrka_packet_tx_finalize(struct kyrka *, struct kyrka_packet *);
 
 #endif

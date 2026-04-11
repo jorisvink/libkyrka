@@ -62,6 +62,18 @@
 /* The KDF label for an ambry. */
 #define KYRKA_AMBRY_KDF				LABEL(AMBRY.KDF)
 
+/* The KDF label for the shroud mask generation. */
+#define KYRKA_SHROUD_LABEL			LABEL(SHROUD.KDF)
+
+/* The KDF label for a shroud peer key. */
+#define KYRKA_SHROUD_KEY_KDF_LABEL		LABEL(SHROUD.KEY)
+
+/* The KDF label for a shroud identity. */
+#define KYRKA_SHROUD_IDENTITY_KDF_LABEL		LABEL(SHROUD.IDENTITY)
+
+/* The KDF label for a shroud base identity. */
+#define KYRKA_SHROUD_IDENTITY_BASE_KDF_LABEL	LABEL(SHROUD.BASE.IDENTITY)
+
 /* The KDF label for talking to a cathedral. */
 #define KYRKA_CATHEDRAL_KDF_LABEL		CLABEL(CATHEDRAL.KDF)
 
@@ -70,5 +82,8 @@
 
 /* The KDF label when generating base keys for offers to cathedrals. */
 #define KYRKA_CATHEDRAL_OFFER_KDF_LABEL		CLABEL(CATHEDRAL.OFFER.KDF)
+
+/* The KDF label for a cathedral shroud key. */
+#define KYRKA_CATHEDRAL_SHROUD_KEY_KDF_LABEL	LABEL(CATHEDRAL.SHROUD.KEY)
 
 #endif
