@@ -68,13 +68,22 @@ if (kyrka_secret_load_path(ctx, "/tmp/secret") == -1)
 
 ```c
 void
-cathedral_send_packet(const void *data, size_t len, u_int64_t msg, void *udata)
+cathedral_send_packet(struct kyrka_packet *pkt, u_int64_t msg, void *udata)
 {
+	size_t		len;
+	KYRKA		*ctx;
+	void		*data;
+
 	/*
 	 * Send the data to somewhere, msg gives you if its a normal
 	 * cathedral notify (KYRKA_CATHEDRAL_MAGIC) or if it is a
 	 * NAT detection (KYRKA_CATHEDRAL_NAT_MAGIC).
 	 */
+
+	ctx = udata;
+
+	if ((data = kyrka_packet_sendbuf(ctx, pkt, &len)) == NULL)
+		/* handle error */
 }
 
 ...
@@ -128,25 +137,40 @@ or when ciphertext is available to be sent (on purgatory).
 
 ```c
 void
-heaven_send_packet(const void *data, size_t len, u_int64_t seq, void *udata)
+heaven_send_packet(struct kyrka_packet *pkt, u_int64_t seq, void *udata)
 {
+	void		*data;
+
 	/*
 	 * Cleartext data is ready to be sent, somewhere. Up to you where
 	 * or what that means.
 	 *
 	 * The packet is sequence number is given in seq.
 	 */
+
+	data = kyrka_packet_data(pkt);
+
+	/* Use pkt->length for the data length. */
+
 }
 
 void
 purgatory_send_packet(const void *data, size_t len, u_int64_t seq, void *udata)
 {
+	size_t		len;
+	KYRKA		*ctx;
+	void		*data;
+
 	/*
 	 * Ciphertext data is ready to be sent, somewhere. Up to you where
 	 * or what that means.
 	 *
 	 * The packet is sequence number is given in seq.
 	 */
+	ctx = udata;
+
+	if ((data = kyrka_packet_sendbuf(ctx, pkt, &len)) == NULL)
+		/* handle error */
 }
 
 ...
@@ -164,11 +188,31 @@ decryption (kyrka_purgatory_input()).
 
 ```c
 /* Send hello to our peer. */
-if (kyrka_heaven_input(ctx, "hello", 5) == -1)
+size_t			len;
+struct kyrka_packet	pkt;
+u_int8_t		*ptr;
+
+if ((ptr = kyrka_packet_databuf(ctx, &pkt, &len)) == NULL)
+	errx(1, "failed to get data buffer");
+
+if (5 > len)
+	errx(1, "data too large to copy into data buffer");
+
+memcpy(ptr, "hello", 5);
+pkt.length = 5;
+
+if (kyrka_heaven_input(ctx, &pkt) == -1)
 	errx(1, "kyrka_heaven_input: %d", kyrka_last_error(ctx));
 
 /* Submit a received encrypted packet for decryption. */
-if (kyrka_purgatory_input(ctx, pkt, pktlen) == -1)
+if ((data = kyrka_packet_recvbuf(ctx, &pkt, &len)) == NULL)
+	errx(1, "kyrka_packet_recvbuf: %d", kyrka_last_error(ctx));
+
+/* ... */
+/* receive bytes into data for len max bytes. */
+/* ... */
+
+if (kyrka_purgatory_input(ctx, &pkt) == -1)
 	errx(1, "kyrka_purgatory_input: %d", kyrka_last_error(ctx));
 ```
 
@@ -182,8 +226,6 @@ using the ambry distributions from the cathedral.
 
 Some of the underlying libs that libkyrka uses will call a
 fatal function in case of things that should never happen, happen.
-
-I am aware this isn't ideal.
 
 You can hook this using kyrka_fatal_callback() and passing
 a function pointer to a function that is to be called when

@@ -21,12 +21,67 @@
 #include "libkyrka-int.h"
 
 /*
- * After how many packets do we rollover the pn and spi when
- * we are applying encapsulation.
- *
- * Doing this just makes it look like we negotiated.
+ * Returns a pointer a caller can use to input cleartext data into the lib.
  */
-#define PACKET_ENCAP_PKT_MAX		(1 << 20)
+void *
+kyrka_packet_databuf(struct kyrka *ctx, struct kyrka_packet *pkt, size_t *len)
+{
+	if (ctx == NULL)
+		return (NULL);
+
+	if (pkt == NULL) {
+		ctx->last_error = KYRKA_ERROR_PARAMETER;
+		return (NULL);
+	}
+
+	*len = KYRKA_PACKET_DATA_LEN;
+
+	return (kyrka_packet_data(pkt));
+}
+
+/*
+ * Returns a pointer a caller can use to receive data into the packet struct.
+ */
+void *
+kyrka_packet_recvbuf(struct kyrka *ctx, struct kyrka_packet *pkt, size_t *len)
+{
+	if (ctx == NULL)
+		return (NULL);
+
+	if (pkt == NULL) {
+		ctx->last_error = KYRKA_ERROR_PARAMETER;
+		return (NULL);
+	}
+
+	*len = KYRKA_PACKET_DATA_LEN;
+
+	if (ctx->flags & KYRKA_FLAG_USE_SHROUD)
+		return (kyrka_packet_start(pkt));
+
+	return (kyrka_packet_head(pkt));
+}
+
+/*
+ * Returns a pointer a caller can use to send data from the packet struct.
+ */
+void *
+kyrka_packet_sendbuf(struct kyrka *ctx, struct kyrka_packet *pkt, size_t *len)
+{
+	if (ctx == NULL)
+		return (NULL);
+
+	if (pkt == NULL) {
+		ctx->last_error = KYRKA_ERROR_PARAMETER;
+		return (NULL);
+	}
+
+	*len = pkt->length;
+
+	if (ctx->flags & KYRKA_FLAG_USE_SHROUD)
+		return (kyrka_packet_start(pkt));
+
+	return (kyrka_packet_head(pkt));
+}
 
 /*
  * Returns a pointer to the start of the entire packet buffer.
@@ -75,60 +130,24 @@ kyrka_packet_tail(struct kyrka_packet *pkt)
 
 /*
  * Check if the given packet contains enough data to satisfy
- * an IPSec header, tail and cipher overhead.
+ * sanctum protocol header, tail and cipher overhead.
  */
 int
-kyrka_packet_crypto_checklen(struct kyrka_packet *pkt)
+kyrka_packet_crypto_checklen(struct kyrka *ctx, struct kyrka_packet *pkt)
 {
-	PRECOND(pkt != NULL);
-
-	if (pkt->length < sizeof(struct kyrka_proto_hdr) +
-	    sizeof(struct kyrka_proto_tail) + KYRKA_TAG_LENGTH)
-		return (-1);
-
-	return (0);
-}
-
-/*
- * Finalize a packet for sending, encapsulating it if required.
- * Returns a pointer to the data that should be sent onto the wire.
- * Adjusts pkt->length if required.
- */
-void *
-kyrka_packet_tx_finalize(struct kyrka *ctx, struct kyrka_packet *pkt)
-{
-	struct nyfe_kmac256		kdf;
-	struct kyrka_encap_hdr		*hdr;
-	size_t				idx, total;
-	u_int8_t			*data, mask[KYRKA_ENCAP_MASK_LEN];
+	size_t		min;
 
 	PRECOND(ctx != NULL);
 	PRECOND(pkt != NULL);
 
-	if (!(ctx->flags & KYRKA_FLAG_ENCAPSULATION))
-		return (kyrka_packet_head(pkt));
+	min = sizeof(struct kyrka_proto_hdr) +
+	    sizeof(struct kyrka_proto_tail) + KYRKA_TAG_LENGTH;
 
-	total = sizeof(*hdr) + pkt->length;
-	VERIFY(total > pkt->length && total < KYRKA_PACKET_MAX_LEN);
+	if (ctx->flags & KYRKA_FLAG_USE_SHROUD)
+		min += sizeof(struct kyrka_shroud_hdr);
 
-	hdr = kyrka_packet_start(pkt);
-	data = kyrka_packet_head(pkt);
+	if (pkt->length < min)
+		return (-1);
 
-	kyrka_random_bytes(hdr->seed, sizeof(hdr->seed));
-
-	nyfe_kmac256_init(&kdf, ctx->encap.tek, sizeof(ctx->encap.tek),
-	    KYRKA_ENCAP_LABEL, sizeof(KYRKA_ENCAP_LABEL) - 1);
-	nyfe_kmac256_update(&kdf, hdr, sizeof(*hdr));
-	nyfe_kmac256_final(&kdf, mask, sizeof(mask));
-
-	/*
-	 * We do not check pkt length here before applying the XOR mask
-	 * as the buffer will always have enough space to do this.
-	 */
-	for (idx = 0; idx < sizeof(mask); idx++)
-		data[idx] ^= mask[idx];
-
-	pkt->length += sizeof(*hdr);
-
-	return (hdr);
+	return (0);
 }

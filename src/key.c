@@ -33,6 +33,8 @@ static int	key_offer_send_fragment(struct kyrka *, int, u_int8_t);
 static int	key_make_active(struct kyrka_sa *, struct kyrka_xchg_info *,
 		    const u_int8_t *, size_t, time_t);
 
+static void	key_shroud_manage(struct kyrka *);
+
 static void	key_exchange(struct kyrka *, struct kyrka_offer *);
 static void	key_exchange_encapsulate(struct kyrka *,
 		    struct kyrka_offer *, time_t);
@@ -42,8 +44,8 @@ static void	key_exchange_finalize(struct kyrka *,
 		    struct kyrka_offer *, time_t, u_int8_t);
 
 /*
- * Called every event tick by the user of the library. We figure out if we
- * need to generate a key offer, or send an active one, or stop the sending.
+ * Called every event tick by the user of the library. We handle the entire
+ * key management loop required for sanctum here.
  */
 int
 kyrka_key_manage(struct kyrka *ctx)
@@ -63,7 +65,11 @@ kyrka_key_manage(struct kyrka *ctx)
 		return (-1);
 	}
 
+	/* XXX */
 	(void)clock_gettime(CLOCK_MONOTONIC, &ts);
+
+	if (ctx->flags & KYRKA_FLAG_USE_SHROUD)
+		key_shroud_manage(ctx);
 
 	if (ctx->cathedral.ambry_switch &&
 	    (ts.tv_sec - ctx->cathedral.ambry_recv) >= 75) {
@@ -110,48 +116,45 @@ kyrka_key_manage(struct kyrka *ctx)
  * already be active or needs to be started.
  */
 void
-kyrka_key_offer_decrypt(struct kyrka *ctx, const void *data, size_t len)
+kyrka_key_offer_decrypt(struct kyrka *ctx, struct kyrka_packet *pkt)
 {
 	struct kyrka_key		okm;
-	struct kyrka_offer		offer;
+	struct kyrka_offer		*offer;
 	struct kyrka_exchange_offer	*exchange;
 
 	PRECOND(ctx != NULL);
-	PRECOND(data != NULL);
+	PRECOND(pkt != NULL);
 
-	if (len < sizeof(offer))
+	if (pkt->length < sizeof(*offer))
 		return;
 
 	nyfe_zeroize_register(&okm, sizeof(okm));
-	nyfe_zeroize_register(&offer, sizeof(offer));
-
-	nyfe_memcpy(&offer, data, sizeof(offer));
+	offer = kyrka_packet_head(pkt);
 
 	kyrka_mask(ctx, ctx->cfg.secret, sizeof(ctx->cfg.secret));
 	kyrka_offer_kdf(ctx, ctx->cfg.secret, sizeof(ctx->cfg.secret),
-	    KYRKA_CHAPEL_DERIVE_LABEL, &okm, offer.hdr.seed,
-	    sizeof(offer.hdr.seed), ctx->cathedral.flock_src,
+	    KYRKA_CHAPEL_DERIVE_LABEL, &okm, offer->hdr.seed,
+	    sizeof(offer->hdr.seed), ctx->cathedral.flock_src,
 	    ctx->cathedral.flock_dst);
 	kyrka_mask(ctx, ctx->cfg.secret, sizeof(ctx->cfg.secret));
 
-	if (kyrka_offer_decrypt(&okm, &offer, 10) == -1)
+	if (kyrka_offer_decrypt(&okm, offer, 10) == -1)
 		goto cleanup;
 
-	if (offer.data.type != KYRKA_OFFER_TYPE_EXCHANGE)
+	if (offer->data.type != KYRKA_OFFER_TYPE_EXCHANGE)
 		goto cleanup;
 
-	exchange = &offer.data.offer.exchange;
+	exchange = &offer->data.offer.exchange;
 	exchange->id = be64toh(exchange->id);
 
 	if (exchange->id == ctx->local_id)
 		goto cleanup;
 
-	offer.hdr.spi = be32toh(offer.hdr.spi);
-	key_exchange(ctx, &offer);
+	offer->hdr.spi = be32toh(offer->hdr.spi);
+	key_exchange(ctx, offer);
 
 cleanup:
 	nyfe_zeroize(&okm, sizeof(okm));
-	nyfe_zeroize(&offer, sizeof(offer));
 }
 
 /*
@@ -352,7 +355,6 @@ key_offer_send_fragment(struct kyrka *ctx, int which, u_int8_t frag)
 	struct kyrka_packet		pkt;
 	struct kyrka_key		okm;
 	struct kyrka_offer		*op;
-	u_int8_t			*ptr;
 	struct kyrka_xchg_info		*info;
 	size_t				offset;
 	struct kyrka_exchange_offer	*exchange;
@@ -412,8 +414,17 @@ key_offer_send_fragment(struct kyrka *ctx, int which, u_int8_t frag)
 
 	nyfe_zeroize(&okm, sizeof(okm));
 
-	ptr = kyrka_packet_tx_finalize(ctx, &pkt);
-	ctx->purgatory.send(ptr, pkt.length, 0, ctx->purgatory.udata);
+	if (ctx->flags & KYRKA_FLAG_USE_SHROUD) {
+		if (ctx->flags & KYRKA_FLAG_P2P_ACTIVE)
+			pkt.shroud = KYRKA_PACKET_SHROUD_PEER;
+		else
+			pkt.shroud = KYRKA_PACKET_SHROUD_CATHEDRAL;
+
+		if (kyrka_shroud_packet(ctx, &pkt) == -1)
+			return (-1);
+	}
+
+	ctx->purgatory.send(&pkt, 0, ctx->purgatory.udata);
 
 	return (0);
 }
@@ -732,4 +743,23 @@ key_make_active(struct kyrka_sa *sa, struct kyrka_xchg_info *info,
 	sa->salt = info->salt;
 
 	return (0);
+}
+
+/*
+ * Check if we need to derive a new peer shroud secret and do so
+ * if required. This can happen if we do not have one or if an
+ * ambry swap occurred and cleared the bit.
+ */
+static void
+key_shroud_manage(struct kyrka *ctx)
+{
+	PRECOND(ctx != NULL);
+	VERIFY(ctx->flags & KYRKA_FLAG_USE_SHROUD);
+
+	if (!(ctx->shroud.flags & KYRKA_SHROUD_PEER_KEY) &&
+	    (ctx->flags & KYRKA_FLAG_SECRET_SET)) {
+		kyrka_shroud_kdf(ctx, KYRKA_KDF_PURPOSE_SHROUD_PEER);
+		ctx->shroud.flags |= KYRKA_SHROUD_PEER_KEY;
+		kyrka_logmsg(ctx, "shroud peer key created");
+	}
 }

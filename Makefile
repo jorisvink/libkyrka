@@ -43,6 +43,7 @@ SRC=	src/kyrka.c \
 	src/key.c \
 	src/heaven.c \
 	src/offer.c \
+	src/shroud.c \
 	src/packet.c \
 	src/purgatory.c \
 	src/vicar.c

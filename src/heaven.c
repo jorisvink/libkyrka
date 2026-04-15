@@ -32,7 +32,7 @@
  */
 int
 kyrka_heaven_ifc(struct kyrka *ctx,
-    void (*cb)(const void *, size_t, u_int64_t, void *), void *udata)
+    void (*cb)(struct kyrka_packet *, u_int64_t, void *), void *udata)
 {
 	if (ctx == NULL)
 		return (-1);
@@ -56,10 +56,9 @@ kyrka_heaven_ifc(struct kyrka *ctx,
  * via the purgatory "virtual interface".
  */
 int
-kyrka_heaven_input(struct kyrka *ctx, const void *data, size_t len)
+kyrka_heaven_input(struct kyrka *ctx, struct kyrka_packet *pkt)
 {
 	struct timespec			ts;
-	struct kyrka_packet		pkt;
 	struct kyrka_proto_tail		*tail;
 	struct kyrka_cipher		cipher;
 	size_t				overhead;
@@ -69,7 +68,8 @@ kyrka_heaven_input(struct kyrka *ctx, const void *data, size_t len)
 	if (ctx == NULL)
 		return (-1);
 
-	if (data == NULL || len == 0 || len > KYRKA_PACKET_DATA_LEN) {
+	if (pkt == NULL || pkt->length == 0 ||
+	    pkt->length > KYRKA_PACKET_DATA_LEN) {
 		ctx->last_error = KYRKA_ERROR_PARAMETER;
 		return (-1);
 	}
@@ -83,6 +83,9 @@ kyrka_heaven_input(struct kyrka *ctx, const void *data, size_t len)
 		ctx->last_error = KYRKA_ERROR_NO_TX_KEY;
 		return (-1);
 	}
+
+	if (kyrka_shroud_has_key(ctx, KYRKA_SHROUD_PEER_KEY) == -1)
+		return (-1);
 
 	/* XXX */
 	(void)clock_gettime(CLOCK_MONOTONIC, &ts);
@@ -100,21 +103,18 @@ kyrka_heaven_input(struct kyrka *ctx, const void *data, size_t len)
 	}
 
 	overhead = sizeof(*hdr) + sizeof(*tail) + KYRKA_TAG_LENGTH;
-	pkt.length = len;
 
-	if ((pkt.length + overhead < pkt.length) ||
-	    (pkt.length + overhead > sizeof(pkt.data))) {
+	if ((pkt->length + overhead < pkt->length) ||
+	    (pkt->length + overhead > sizeof(pkt->data))) {
 		ctx->last_error = KYRKA_ERROR_INTERNAL;
 		kyrka_logmsg(ctx,
 		    "packet length + overhead too large to fit");
 		return (-1);
 	}
 
-	ptr = kyrka_packet_data(&pkt);
-	memcpy(ptr, data, pkt.length);
-
-	hdr = kyrka_packet_head(&pkt);
-	tail = kyrka_packet_tail(&pkt);
+	ptr = kyrka_packet_data(pkt);
+	hdr = kyrka_packet_head(pkt);
+	tail = kyrka_packet_tail(pkt);
 
 	hdr->pn = ctx->tx.seqnr++;
 	hdr->esp.spi = htobe32(ctx->tx.spi);
@@ -124,9 +124,9 @@ kyrka_heaven_input(struct kyrka *ctx, const void *data, size_t len)
 	hdr->flock.src = htobe64(ctx->cathedral.flock_src);
 	hdr->flock.dst = htobe64(ctx->cathedral.flock_dst);
 
-	tail->pad = 0;
 	tail->next = 0;
-	pkt.length += sizeof(*tail);
+	tail->reserved = 0;
+	pkt->length += sizeof(*tail);
 
 	memcpy(&aad, hdr, sizeof(*hdr));
 	memcpy(nonce, &ctx->tx.salt, sizeof(ctx->tx.salt));
@@ -142,18 +142,20 @@ kyrka_heaven_input(struct kyrka *ctx, const void *data, size_t len)
 
 	cipher.pt = ptr;
 	cipher.ct = ptr;
-	cipher.data_len = pkt.length;
-	cipher.tag = ptr + pkt.length;
+	cipher.data_len = pkt->length;
+	cipher.tag = ptr + pkt->length;
 
 	if (kyrka_cipher_encrypt(&cipher) == -1)
 		return (-1);
 
-	pkt.length += sizeof(*hdr) + KYRKA_TAG_LENGTH;
+	pkt->length += sizeof(*hdr) + KYRKA_TAG_LENGTH;
 
-	ptr = kyrka_packet_tx_finalize(ctx, &pkt);
+	if (ctx->flags & KYRKA_FLAG_USE_SHROUD) {
+		if (kyrka_shroud_packet(ctx, pkt) == -1)
+			return (-1);
+	}
 
-	ctx->purgatory.send(ptr, pkt.length,
-	    ctx->tx.seqnr - 1, ctx->purgatory.udata);
+	ctx->purgatory.send(pkt, ctx->tx.seqnr - 1, ctx->purgatory.udata);
 
 	return (0);
 }

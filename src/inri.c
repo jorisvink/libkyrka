@@ -33,9 +33,9 @@
 #include "libkyrka-inri.h"
 
 static void	inri_context_event(KYRKA *, union kyrka_event *, void *);
-static void	inri_heaven_ifc(const void *, size_t, u_int64_t, void *);
-static void	inri_purgatory_ifc(const void *, size_t, u_int64_t, void *);
-static void	inri_cathedral_send(const void *, size_t, u_int64_t, void *);
+static void	inri_heaven_ifc(struct kyrka_packet *, u_int64_t, void *);
+static void	inri_purgatory_ifc(struct kyrka_packet *, u_int64_t, void *);
+static void	inri_cathedral_send(struct kyrka_packet *, u_int64_t, void *);
 
 static int	inri_opt_interval(struct kyrka_inri *, va_list);
 static int	inri_opt_p2p_disable(struct kyrka_inri *, va_list);
@@ -234,8 +234,10 @@ int
 kyrka_inri_run(struct kyrka_inri *inri)
 {
 	struct timespec		ts;
+	struct kyrka_packet	pkt;
+	size_t			len;
 	ssize_t			ret;
-	u_int8_t		pkt[1500];
+	u_int8_t		*data;
 
 	if (inri == NULL)
 		return (-1);
@@ -263,9 +265,11 @@ kyrka_inri_run(struct kyrka_inri *inri)
 	    kyrka_last_error(inri->ctx) != KYRKA_ERROR_NO_SECRET)
 		return (-1);
 
+	if ((data = kyrka_packet_recvbuf(inri->ctx, &pkt, &len)) == NULL)
+		return (-1);
+
 	for (;;) {
-		if ((ret = recv(inri->fd,
-		    pkt, sizeof(pkt), MSG_DONTWAIT)) == -1) {
+		if ((ret = recv(inri->fd, data, len, MSG_DONTWAIT)) == -1) {
 			if (errno == EINTR)
 				continue;
 			break;
@@ -274,7 +278,10 @@ kyrka_inri_run(struct kyrka_inri *inri)
 		if (ret == 0)
 			continue;
 
-		if (kyrka_purgatory_input(inri->ctx, pkt, ret) == -1)
+		pkt.length = ret;
+		pkt.shroud = KYRKA_PACKET_SHROUD_CATHEDRAL;
+
+		if (kyrka_purgatory_input(inri->ctx, &pkt) == -1)
 			return (-1);
 	}
 
@@ -343,6 +350,9 @@ kyrka_inri_apply(struct kyrka_inri *inri)
 int
 kyrka_inri_send(struct kyrka_inri *inri, const void *data, size_t len)
 {
+	struct kyrka_packet	pkt;
+	u_int8_t		*ptr;
+
 	if (inri == NULL)
 		return (-1);
 
@@ -357,7 +367,13 @@ kyrka_inri_send(struct kyrka_inri *inri, const void *data, size_t len)
 		return (-1);
 	}
 
-	return (kyrka_heaven_input(inri->ctx, data, len));
+	ptr = kyrka_packet_data(&pkt);
+	nyfe_memcpy(ptr, data, len);
+
+	pkt.length = len;
+	pkt.shroud = KYRKA_PACKET_SHROUD_CATHEDRAL;
+
+	return (kyrka_heaven_input(inri->ctx, &pkt));
 }
 
 /*
@@ -430,17 +446,18 @@ inri_context_event(struct kyrka *ctx, union kyrka_event *evt, void *udata)
  * obtain it.
  */
 static void
-inri_heaven_ifc(const void *data, size_t len, u_int64_t seq, void *udata)
+inri_heaven_ifc(struct kyrka_packet *pkt, u_int64_t seq, void *udata)
 {
+	u_int8_t		*data;
 	struct kyrka_inri	*inri;
 
-	PRECOND(data != NULL);
-	PRECOND(len > 0);
+	PRECOND(pkt != NULL);
 	PRECOND(udata != NULL);
 
 	inri = udata;
+	data = kyrka_packet_data(pkt);
 
-	inri->heaven(inri, data, len);
+	inri->heaven(inri, data, pkt->length);
 }
 
 /*
@@ -448,15 +465,22 @@ inri_heaven_ifc(const void *data, size_t len, u_int64_t seq, void *udata)
  * We simply send it to our current peer address.
  */
 static void
-inri_purgatory_ifc(const void *data, size_t len, u_int64_t seq, void *udata)
+inri_purgatory_ifc(struct kyrka_packet *pkt, u_int64_t seq, void *udata)
 {
+	size_t			len;
+	u_int8_t		*data;
 	struct kyrka_inri	*inri;
 
-	PRECOND(data != NULL);
-	PRECOND(len > 0);
+	PRECOND(pkt != NULL);
 	PRECOND(udata != NULL);
 
 	inri = udata;
+
+	if ((data = kyrka_packet_sendbuf(inri->ctx, pkt, &len)) == NULL) {
+		kyrka_logmsg(inri->ctx,
+		    "kyrka_packet_sendbuf: %d", kyrka_last_error(inri->ctx));
+		return;
+	}
 
 	if (sendto(inri->fd, data, len, 0,
 	    (const struct sockaddr *)&inri->peer, sizeof(inri->peer)) == -1) {
@@ -470,15 +494,22 @@ inri_purgatory_ifc(const void *data, size_t len, u_int64_t seq, void *udata)
  * We simply send it to our current cathedral address.
  */
 static void
-inri_cathedral_send(const void *data, size_t len, u_int64_t seq, void *udata)
+inri_cathedral_send(struct kyrka_packet *pkt, u_int64_t seq, void *udata)
 {
+	size_t			len;
+	u_int8_t		*data;
 	struct kyrka_inri	*inri;
 
-	PRECOND(data != NULL);
-	PRECOND(len > 0);
+	PRECOND(pkt != NULL);
 	PRECOND(udata != NULL);
 
 	inri = udata;
+
+	if ((data = kyrka_packet_sendbuf(inri->ctx, pkt, &len)) == NULL) {
+		kyrka_logmsg(inri->ctx,
+		    "kyrka_packet_sendbuf: %d", kyrka_last_error(inri->ctx));
+		return;
+	}
 
 	if (sendto(inri->fd, data, len, 0,
 	    (const struct sockaddr *)&inri->cathedral,

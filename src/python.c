@@ -14,11 +14,11 @@
  * OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  */
 
+#include <Python.h>
+
 #include <sys/types.h>
 
 #define PY_SSIZE_T_CLEAN	1
-
-#include <Python.h>
 
 #include <libkyrka-int.h>
 #include <stdarg.h>
@@ -67,8 +67,9 @@ static void		python_fatal(const char *, va_list);
 static PyObject		*pykyrka_alloc(PyObject *, PyObject *);
 static PyObject		*pykyrka_version(PyObject *, PyObject *);
 static PyObject		*pykyrka_key_manage(PyObject *, PyObject *);
+static PyObject		*pykyrka_p2p_active(PyObject *, PyObject *);
 static PyObject		*pykyrka_secret_load(PyObject *, PyObject *);
-static PyObject		*pykyrka_encap_key_load(PyObject *, PyObject *);
+static PyObject		*pykyrka_shroud_enable(PyObject *, PyObject *);
 static PyObject		*pykyrka_device_kek_load(PyObject *, PyObject *);
 static PyObject		*pykyrka_secret_load_path(PyObject *, PyObject *);
 
@@ -111,19 +112,20 @@ static int		python_uint64_from_dict(PyObject *,
 			    const char *, u_int64_t *);
 
 static void	kyrka_cb_event(KYRKA *, union kyrka_event *, void *);
-static void	kyrka_cb_heaven(const void *, size_t, u_int64_t, void *);
-static void	kyrka_cb_cathedral(const void *, size_t, u_int64_t, void *);
-static void	kyrka_cb_purgatory(const void *, size_t, u_int64_t, void *);
+static void	kyrka_cb_heaven(struct kyrka_packet *, u_int64_t, void *);
+static void	kyrka_cb_cathedral(struct kyrka_packet *, u_int64_t, void *);
+static void	kyrka_cb_purgatory(struct kyrka_packet *, u_int64_t, void *);
 
 /*
  * The libkyrka context methods exposed to python.
  */
 static PyMethodDef pykyrka_methods[] = {
 	METHOD("key_manage", pykyrka_key_manage, METH_NOARGS),
+	METHOD("p2p_active", pykyrka_p2p_active, METH_VARARGS),
 	METHOD("secret_load", pykyrka_secret_load, METH_VARARGS),
 	METHOD("heaven_input", pykyrka_heaven_input, METH_VARARGS),
+	METHOD("shroud_enable", pykyrka_shroud_enable, METH_NOARGS),
 	METHOD("event_callback", pykyrka_event_callback, METH_VARARGS),
-	METHOD("encap_key_load", pykyrka_encap_key_load, METH_VARARGS),
 	METHOD("device_kek_load", pykyrka_device_kek_load, METH_VARARGS),
 	METHOD("purgatory_input", pykyrka_purgatory_input, METH_VARARGS),
 	METHOD("heaven_callback", pykyrka_heaven_callback, METH_VARARGS),
@@ -178,7 +180,6 @@ static PyModuleDef module = {
  */
 static struct integer constants_events[] = {
 	CONSTANT(KYRKA_EVENT_KEYS_INFO),
-	CONSTANT(KYRKA_EVENT_ENCAP_INFO),
 	CONSTANT(KYRKA_EVENT_KEYS_ERASED),
 	CONSTANT(KYRKA_EVENT_EXCHANGE_INFO),
 	CONSTANT(KYRKA_EVENT_PEER_DISCOVERY),
@@ -196,6 +197,8 @@ static struct integer constants_misc[] = {
 	CONSTANT(KYRKA_PEERS_PER_FLOCK),
 	CONSTANT(KYRKA_CATHEDRAL_MAGIC),
 	CONSTANT(KYRKA_CATHEDRAL_NAT_MAGIC),
+	CONSTANT(KYRKA_PACKET_SHROUD_PEER),
+	CONSTANT(KYRKA_PACKET_SHROUD_CATHEDRAL),
 	CONSTANT(KYRKA_CATHEDRAL_LITURGY_MAGIC),
 	{ NULL, -1, NULL },
 };
@@ -325,10 +328,6 @@ kyrka_cb_event(KYRKA *kctx, union kyrka_event *evt, void *udata)
 		break;
 	case KYRKA_EVENT_REMEMBRANCE_RECEIVED:
 		break;
-	case KYRKA_EVENT_ENCAP_INFO:
-		if (python_dict_add_uint64(info, "spi", evt->encap.spi) == -1)
-			goto cleanup;
-		break;
 	default:
 		PyErr_Format(PyExc_RuntimeError,
 		    "unknown libkyrka event %u", evt->type);
@@ -348,17 +347,18 @@ cleanup:
  * into the python provided heaven callback.
  */
 static void
-kyrka_cb_heaven(const void *data, size_t len, u_int64_t seq, void *udata)
+kyrka_cb_heaven(struct kyrka_packet *pkt, u_int64_t seq, void *udata)
 {
 	struct pykyrka		*ctx;
+	const void		*data;
 
-	PRECOND(data != NULL);
-	PRECOND(len > 0);
+	PRECOND(pkt != NULL);
 	PRECOND(udata != NULL);
 
 	ctx = (struct pykyrka *)udata;
+	data = kyrka_packet_data(pkt);
 
-	python_callback_run(udata, &ctx->heaven, data, len, seq);
+	python_callback_run(udata, &ctx->heaven, data, pkt->length, seq);
 }
 
 /*
@@ -366,15 +366,19 @@ kyrka_cb_heaven(const void *data, size_t len, u_int64_t seq, void *udata)
  * into the python provided purgatory callback.
  */
 static void
-kyrka_cb_purgatory(const void *data, size_t len, u_int64_t seq, void *udata)
+kyrka_cb_purgatory(struct kyrka_packet *pkt, u_int64_t seq, void *udata)
 {
+	size_t			len;
 	struct pykyrka		*ctx;
+	const void		*data;
 
-	PRECOND(data != NULL);
-	PRECOND(len > 0);
+	PRECOND(pkt != NULL);
 	PRECOND(udata != NULL);
 
 	ctx = (struct pykyrka *)udata;
+
+	if ((data = kyrka_packet_sendbuf(ctx->kyrka, pkt, &len)) == NULL)
+		return;
 
 	python_callback_run(udata, &ctx->purgatory, data, len, seq);
 }
@@ -384,15 +388,19 @@ kyrka_cb_purgatory(const void *data, size_t len, u_int64_t seq, void *udata)
  * into the python provided cathedral callback.
  */
 static void
-kyrka_cb_cathedral(const void *data, size_t len, u_int64_t magic, void *udata)
+kyrka_cb_cathedral(struct kyrka_packet *pkt, u_int64_t magic, void *udata)
 {
+	size_t			len;
 	struct pykyrka		*ctx;
+	const void		*data;
 
-	PRECOND(data != NULL);
-	PRECOND(len > 0);
+	PRECOND(pkt != NULL);
 	PRECOND(udata != NULL);
 
 	ctx = (struct pykyrka *)udata;
+
+	if ((data = kyrka_packet_sendbuf(ctx->kyrka, pkt, &len)) == NULL)
+		return;
 
 	python_callback_run(udata, &ctx->cathedral, data, len, magic);
 }
@@ -523,6 +531,26 @@ pykyrka_cathedral_nat_detection(PyObject *self, PyObject *args)
 	ctx = (struct pykyrka *)self;
 
 	if (kyrka_cathedral_nat_detection(ctx->kyrka) == -1) {
+		python_kyrka_exception(kyrka_last_error(ctx->kyrka));
+		return (NULL);
+	}
+
+	Py_RETURN_TRUE;
+}
+
+/*
+ * Entry from python for an allocated context shroud_enable().
+ */
+static PyObject *
+pykyrka_shroud_enable(PyObject *self, PyObject *args)
+{
+	struct pykyrka		*ctx;
+
+	PRECOND(self != NULL);
+
+	ctx = (struct pykyrka *)self;
+
+	if (kyrka_shroud_enable(ctx->kyrka) == -1) {
 		python_kyrka_exception(kyrka_last_error(ctx->kyrka));
 		return (NULL);
 	}
@@ -664,29 +692,27 @@ pykyrka_device_kek_load(PyObject *self, PyObject *args)
 }
 
 /*
- * Entry from python for an allocated context encap_key_load().
+ * Entry from python for an allocated context p2p_active().
  */
 static PyObject *
-pykyrka_encap_key_load(PyObject *self, PyObject *args)
+pykyrka_p2p_active(PyObject *self, PyObject *args)
 {
-	Py_buffer		buf;
+	int			val;
 	struct pykyrka		*ctx;
 
 	PRECOND(self != NULL);
 	PRECOND(args != NULL);
 
-	if (!PyArg_ParseTuple(args, "y*", &buf))
+	if (!PyArg_ParseTuple(args, "b", &val))
 		return (NULL);
 
 	ctx = (struct pykyrka *)self;
 
-	if (kyrka_encap_key_load(ctx->kyrka, buf.buf, buf.len) == -1) {
-		PyBuffer_Release(&buf);
+	if (kyrka_p2p_active(ctx->kyrka, val) == -1) {
 		python_kyrka_exception(kyrka_last_error(ctx->kyrka));
 		return (NULL);
 	}
 
-	PyBuffer_Release(&buf);
 	Py_RETURN_TRUE;
 }
 
@@ -697,23 +723,44 @@ static PyObject *
 pykyrka_heaven_input(PyObject *self, PyObject *args)
 {
 	Py_buffer		buf;
+	size_t			len;
+	struct kyrka_packet	pkt;
 	struct pykyrka		*ctx;
+	u_int8_t		*ptr;
+	int			destination;
 
 	PRECOND(self != NULL);
 	PRECOND(args != NULL);
 
-	if (!PyArg_ParseTuple(args, "y*", &buf))
+	if (!PyArg_ParseTuple(args, "y*i", &buf, &destination))
 		return (NULL);
 
 	ctx = (struct pykyrka *)self;
 
-	if (kyrka_heaven_input(ctx->kyrka, buf.buf, buf.len) == -1) {
+	if ((ptr = kyrka_packet_databuf(ctx->kyrka, &pkt, &len)) == NULL) {
 		PyBuffer_Release(&buf);
 		python_kyrka_exception(kyrka_last_error(ctx->kyrka));
 		return (NULL);
 	}
 
+	if ((size_t)buf.len > len) {
+		PyBuffer_Release(&buf);
+		PyErr_SetString(PyExc_RuntimeError, "heaven input too big");
+		return (NULL);
+	}
+
+	memcpy(ptr, buf.buf, buf.len);
+
+	pkt.length = buf.len;
+	pkt.shroud = destination;
+
 	PyBuffer_Release(&buf);
+
+	if (kyrka_heaven_input(ctx->kyrka, &pkt) == -1) {
+		python_kyrka_exception(kyrka_last_error(ctx->kyrka));
+		return (NULL);
+	}
+
 	Py_RETURN_TRUE;
 }
 
@@ -724,23 +771,44 @@ static PyObject *
 pykyrka_purgatory_input(PyObject *self, PyObject *args)
 {
 	Py_buffer		buf;
+	struct kyrka_packet	pkt;
+	u_int8_t		*ptr;
 	struct pykyrka		*ctx;
+	int			origin;
+	size_t			maxlen;
 
 	PRECOND(self != NULL);
 	PRECOND(args != NULL);
 
-	if (!PyArg_ParseTuple(args, "y*", &buf))
+	if (!PyArg_ParseTuple(args, "y*i", &buf, &origin))
 		return (NULL);
 
 	ctx = (struct pykyrka *)self;
 
-	if (kyrka_purgatory_input(ctx->kyrka, buf.buf, buf.len) == -1) {
+	if ((ptr = kyrka_packet_recvbuf(ctx->kyrka, &pkt, &maxlen)) == NULL) {
 		PyBuffer_Release(&buf);
 		python_kyrka_exception(kyrka_last_error(ctx->kyrka));
 		return (NULL);
 	}
 
+	if ((size_t)buf.len > maxlen) {
+		PyBuffer_Release(&buf);
+		PyErr_SetString(PyExc_RuntimeError, "purgatory input too big");
+		return (NULL);
+	}
+
+	memcpy(ptr, buf.buf, buf.len);
+
+	pkt.shroud = origin;
+	pkt.length = buf.len;
+
 	PyBuffer_Release(&buf);
+
+	if (kyrka_purgatory_input(ctx->kyrka, &pkt) == -1) {
+		python_kyrka_exception(kyrka_last_error(ctx->kyrka));
+		return (NULL);
+	}
+
 	Py_RETURN_TRUE;
 }
 

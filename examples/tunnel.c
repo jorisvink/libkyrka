@@ -16,7 +16,7 @@
 
 /*
  * A simple example of how to use libkyrka for direct tunnels without
- * cathedral and with encapsulation turned on.
+ * cathedral and with shroud turned on.
  *
  * $ cd examples
  * $ dd if=/dev/urandom.c bs=32 count=1 of=secret.key
@@ -62,12 +62,11 @@ static void	tunnel_read(int, KYRKA *);
 static void	tunnel_manage(struct tunnel *);
 static void	tunnel_address(struct sockaddr_in *, char *);
 static void	tunnel_event(KYRKA *, union kyrka_event *, void *);
-static void	tunnel_plaintext(const void *, size_t, u_int64_t, void *);
-static void	tunnel_ciphertext(const void *, size_t, u_int64_t, void *);
+static void	tunnel_plaintext(struct kyrka_packet *, u_int64_t, void *);
+static void	tunnel_ciphertext(struct kyrka_packet *, u_int64_t, void *);
 
 static struct sockaddr_in	peer;
 static struct sockaddr_in	local;
-static u_int8_t			tek[32];
 
 int
 main(int argc, char *argv[])
@@ -79,7 +78,6 @@ main(int argc, char *argv[])
 	if (argc != 3)
 		fatal("Usage: tunnel [lip:lport] [rip:rport]");
 
-	memset(tek, 'T', sizeof(tek));
 	memset(&peer, 0, sizeof(peer));
 	memset(&local, 0, sizeof(local));
 
@@ -129,16 +127,24 @@ fatal(const char *fmt, ...)
 static void
 tunnel_read(int fd, KYRKA *ctx)
 {
-	ssize_t		ret;
-	u_int8_t	pkt[1500];
+	struct kyrka_packet	pkt;
+	size_t			len;
+	ssize_t			ret;
+	u_int8_t		*ptr;
 
-	if ((ret = recv(fd, pkt, sizeof(pkt), MSG_DONTWAIT)) == -1) {
+	if ((ptr = kyrka_packet_recvbuf(ctx, &pkt, &len)) == NULL)
+		fatal("kyrka_packet_recvbuf: %d", kyrka_last_error(ctx));
+
+	if ((ret = recv(fd, ptr, len, MSG_DONTWAIT)) == -1) {
 		if (errno == EWOULDBLOCK || errno == EAGAIN)
 			return;
 		fatal("recv: %s", strerror(errno));
 	}
 
-	if (kyrka_purgatory_input(ctx, pkt, ret) == -1 &&
+	pkt.length = ret;
+	pkt.shroud = KYRKA_PACKET_SHROUD_PEER;
+
+	if (kyrka_purgatory_input(ctx, &pkt) == -1 &&
 	    kyrka_last_error(ctx) != KYRKA_ERROR_NO_RX_KEY)
 		fatal("kyrka_purgatory_input: %d", kyrka_last_error(ctx));
 }
@@ -191,8 +197,8 @@ tunnel_setup(void)
 	if (kyrka_secret_load_path(tun->ctx, "secret.key") == -1)
 		fatal("kyrka_secret_load_path: %d", kyrka_last_error(tun->ctx));
 
-	if (kyrka_encap_key_load(tun->ctx, tek, sizeof(tek)) == -1)
-		fatal("kyrka_encap_key_load: %d", kyrka_last_error(tun->ctx));
+	if (kyrka_shroud_enable(tun->ctx) == -1)
+		fatal("cannot enable shroud: %d", kyrka_last_error(tun->ctx));
 
 	return (tun);
 }
@@ -200,11 +206,26 @@ tunnel_setup(void)
 static void
 tunnel_manage(struct tunnel *tun)
 {
+	struct kyrka_packet	pkt;
+	size_t			len;
+	u_int8_t		*ptr;
+
 	if (kyrka_key_manage(tun->ctx) == -1 &&
 	    kyrka_last_error(tun->ctx) != KYRKA_ERROR_NO_SECRET)
 		fatal("kyrka_key_manage: %d", kyrka_last_error(tun->ctx));
 
-	if (kyrka_heaven_input(tun->ctx, DATA, sizeof(DATA) - 1) == -1 &&
+	if ((ptr = kyrka_packet_databuf(tun->ctx, &pkt, &len)) == NULL)
+		fatal("kyrka_packet_databuf: %d", kyrka_last_error(tun->ctx));
+
+	if (sizeof(DATA) - 1 > len)
+		fatal("data too large");
+
+	memcpy(ptr, DATA, sizeof(DATA) - 1);
+
+	pkt.length = sizeof(DATA) - 1;
+	pkt.shroud = KYRKA_PACKET_SHROUD_PEER;
+
+	if (kyrka_heaven_input(tun->ctx, &pkt) == -1 &&
 	    kyrka_last_error(tun->ctx) != KYRKA_ERROR_NO_TX_KEY)
 		fatal("kyrka_heaven_input: %d", kyrka_last_error(tun->ctx));
 }
@@ -219,8 +240,8 @@ tunnel_event(KYRKA *ctx, union kyrka_event *evt, void *udata)
 	case KYRKA_EVENT_EXCHANGE_INFO:
 		printf("%s\n", evt->exchange.reason);
 		break;
-	case KYRKA_EVENT_ENCAP_INFO:
-		printf("encapsulation spi=%08x\n", evt->encap.spi);
+	case KYRKA_EVENT_LOGMSG:
+		printf("%s\n", evt->logmsg.log);
 		break;
 	default:
 		printf("ignoring 0x%02x\n", evt->type);
@@ -229,19 +250,28 @@ tunnel_event(KYRKA *ctx, union kyrka_event *evt, void *udata)
 }
 
 static void
-tunnel_plaintext(const void *data, size_t len, u_int64_t seq, void *udata)
+tunnel_plaintext(struct kyrka_packet *pkt, u_int64_t seq, void *udata)
 {
-	printf("<< %.*s\n", (int)len, (const char *)data);
+	u_int8_t	*ptr;
+
+	ptr = kyrka_packet_data(pkt);
+
+	printf("<< %.*s\n", (int)pkt->length, (const char *)ptr);
 }
 
 static void
-tunnel_ciphertext(const void *data, size_t len, u_int64_t seq, void *udata)
+tunnel_ciphertext(struct kyrka_packet *pkt, u_int64_t seq, void *udata)
 {
+	size_t			len;
+	u_int8_t		*ptr;
 	struct tunnel		*tun;
 
 	tun = udata;
 
-	if (sendto(tun->fd, data, len, 0,
+	if ((ptr = kyrka_packet_sendbuf(tun->ctx, pkt, &len)) == NULL)
+		fatal("kyrka_packet_sendbuf: %d", kyrka_last_error(tun->ctx));
+
+	if (sendto(tun->fd, ptr, len, 0,
 	    (const struct sockaddr *)&peer, sizeof(peer)) == -1)
 		fatal("sendto: %s", strerror(errno));
 }

@@ -23,12 +23,12 @@
 
 #include "libkyrka-int.h"
 
-static int	purgatory_decapsulate(struct kyrka *,
-		    struct kyrka_packet *);
 static int	purgatory_arwin_check(struct kyrka *,
 		    const struct kyrka_proto_hdr *);
 static void	purgatory_arwin_update(struct kyrka_sa *,
 		    const struct kyrka_proto_hdr *);
+
+static int	purgatory_unshroud(struct kyrka *, struct kyrka_packet *);
 
 /*
  * Sets the "virtual interface" for the purgatory side to the provided callback.
@@ -38,7 +38,7 @@ static void	purgatory_arwin_update(struct kyrka_sa *,
  */
 int
 kyrka_purgatory_ifc(struct kyrka *ctx,
-    void (*cb)(const void *, size_t, u_int64_t, void *), void *udata)
+    void (*cb)(struct kyrka_packet *, u_int64_t, void *), void *udata)
 {
 	if (ctx == NULL)
 		return (-1);
@@ -64,14 +64,13 @@ kyrka_purgatory_ifc(struct kyrka *ctx,
  * packet was not a cathedral message, we call the heaven
  * "virtual interface" with the plaintext data.
  *
- * We might have to decapsulate the packet first if encapsulation
- * was enabled on the context.
+ * We might have to remove a shroud first if shroud was enabled
+ * on our context.
  */
 int
-kyrka_purgatory_input(struct kyrka *ctx, const void *data, size_t len)
+kyrka_purgatory_input(struct kyrka *ctx, struct kyrka_packet *pkt)
 {
 	u_int64_t			pn;
-	struct kyrka_packet		pkt;
 	struct kyrka_proto_tail		*tail;
 	size_t				ctlen;
 	struct kyrka_cipher		cipher;
@@ -83,29 +82,21 @@ kyrka_purgatory_input(struct kyrka *ctx, const void *data, size_t len)
 	if (ctx == NULL)
 		return (-1);
 
-	if (data == NULL || len == 0 || len > KYRKA_PACKET_DATA_LEN) {
+	if (pkt == NULL || pkt->length == 0 ||
+	    pkt->length > KYRKA_PACKET_DATA_LEN) {
 		ctx->last_error = KYRKA_ERROR_PARAMETER;
 		return (-1);
 	}
 
-	if (len < sizeof(*hdr) + sizeof(*tail) + KYRKA_TAG_LENGTH)
+	if (kyrka_packet_crypto_checklen(ctx, pkt) == -1)
 		return (0);
 
-	pkt.length = len;
-
-	if (ctx->flags & KYRKA_FLAG_ENCAPSULATION)
-		ptr = kyrka_packet_start(&pkt);
-	else
-		ptr = kyrka_packet_head(&pkt);
-
-	memcpy(ptr, data, len);
-
-	if (ctx->flags & KYRKA_FLAG_ENCAPSULATION) {
-		if (purgatory_decapsulate(ctx, &pkt) == -1)
-			return (-1);
+	if (ctx->flags & KYRKA_FLAG_USE_SHROUD) {
+		if (purgatory_unshroud(ctx, pkt) == -1)
+			return (0);
 	}
 
-	hdr = kyrka_packet_head(&pkt);
+	hdr = kyrka_packet_head(pkt);
 	spi = be32toh(hdr->esp.spi);
 	seq = be32toh(hdr->esp.seq);
 	pn = be64toh(hdr->pn);
@@ -115,13 +106,13 @@ kyrka_purgatory_input(struct kyrka *ctx, const void *data, size_t len)
 
 	if ((spi == (KYRKA_KEY_OFFER_MAGIC >> 32)) &&
 	    (seq == (KYRKA_KEY_OFFER_MAGIC & 0xffffffff))) {
-		kyrka_key_offer_decrypt(ctx, hdr, pkt.length);
+		kyrka_key_offer_decrypt(ctx, pkt);
 		return (0);
 	}
 
 	if ((spi == (KYRKA_CATHEDRAL_MAGIC >> 32)) &&
 	    (seq == (KYRKA_CATHEDRAL_MAGIC & 0xffffffff)))
-		return (kyrka_cathedral_decrypt(ctx, hdr, pkt.length));
+		return (kyrka_cathedral_decrypt(ctx, pkt));
 
 	if (ctx->heaven.send == NULL) {
 		ctx->last_error = KYRKA_ERROR_NO_CALLBACK;
@@ -161,9 +152,9 @@ kyrka_purgatory_input(struct kyrka *ctx, const void *data, size_t len)
 	cipher.nonce = nonce;
 	cipher.nonce_len = sizeof(nonce);
 
-	ctlen = pkt.length - sizeof(*hdr) - KYRKA_TAG_LENGTH;
+	ctlen = pkt->length - sizeof(*hdr) - KYRKA_TAG_LENGTH;
 
-	ptr = kyrka_packet_data(&pkt);
+	ptr = kyrka_packet_data(pkt);
 	cipher.ct = ptr;
 	cipher.pt = ptr;
 	cipher.data_len = ctlen;
@@ -174,22 +165,20 @@ kyrka_purgatory_input(struct kyrka *ctx, const void *data, size_t len)
 
 	purgatory_arwin_update(&ctx->rx, hdr);
 
-	pkt.length -= sizeof(struct kyrka_proto_hdr);
-	pkt.length -= sizeof(struct kyrka_proto_tail);
-	pkt.length -= KYRKA_TAG_LENGTH;
+	pkt->length -= sizeof(struct kyrka_proto_hdr);
+	pkt->length -= sizeof(struct kyrka_proto_tail);
+	pkt->length -= KYRKA_TAG_LENGTH;
 
-	tail = kyrka_packet_tail(&pkt);
+	tail = kyrka_packet_tail(pkt);
 
-	if (tail->pad != 0)
+	if (tail->reserved != 0)
 		return (0);
 
 	if (tail->next != 0)
 		return (0);
 
 	ctx->rx.pkt++;
-
-	ctx->heaven.send(kyrka_packet_data(&pkt),
-	    pkt.length, pn, ctx->heaven.udata);
+	ctx->heaven.send(pkt, pn, ctx->heaven.udata);
 
 	return (0);
 }
@@ -260,40 +249,31 @@ purgatory_arwin_update(struct kyrka_sa *sa, const struct kyrka_proto_hdr *hdr)
 }
 
 /*
- * Decapsulate a packet by unmasking it using a derived mask from
- * our encapsulation key (TEK).
+ * Removes a shroud from an incoming packet. The key we use depends
+ * on what the user told us via the shroud member in the packet.
  */
 static int
-purgatory_decapsulate(struct kyrka *ctx, struct kyrka_packet *pkt)
+purgatory_unshroud(struct kyrka *ctx, struct kyrka_packet *pkt)
 {
-	size_t				idx;
-	struct nyfe_kmac256		kdf;
-	struct kyrka_encap_hdr		*hdr;
-	u_int8_t			*data, mask[KYRKA_ENCAP_MASK_LEN];
-
 	PRECOND(ctx != NULL);
 	PRECOND(pkt != NULL);
-	PRECOND(ctx->flags & KYRKA_FLAG_ENCAPSULATION);
+	VERIFY(ctx->flags & KYRKA_FLAG_USE_SHROUD);
 
-	if (pkt->length < sizeof(*hdr))
+	switch (pkt->shroud) {
+	case KYRKA_PACKET_SHROUD_CATHEDRAL:
+		break;
+	case KYRKA_PACKET_SHROUD_PEER:
+		break;
+	default:
+		kyrka_logmsg(ctx, "unknown shroud type in packet (%u)",
+		    pkt->shroud);
+		return (-1);
+	}
+
+	if (kyrka_shroud_xor(ctx, pkt) == -1)
 		return (-1);
 
-	hdr = kyrka_packet_start(pkt);
-	data = kyrka_packet_head(pkt);
-
-	nyfe_kmac256_init(&kdf, ctx->encap.tek, sizeof(ctx->encap.tek),
-	    KYRKA_ENCAP_LABEL, sizeof(KYRKA_ENCAP_LABEL) - 1);
-	nyfe_kmac256_update(&kdf, hdr, sizeof(*hdr));
-	nyfe_kmac256_final(&kdf, mask, sizeof(mask));
-
-	/*
-	 * We do not check pkt length here before applying the XOR mask
-	 * as the buffer will always have enough space to do this.
-	 */
-	for (idx = 0; idx < sizeof(mask); idx++)
-		data[idx] ^= mask[idx];
-
-	pkt->length -= sizeof(*hdr);
+	pkt->length -= sizeof(struct kyrka_shroud_hdr);
 
 	return (0);
 }
