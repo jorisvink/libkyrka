@@ -328,7 +328,6 @@ cathedral_send_offer(struct kyrka *ctx, u_int64_t magic)
 		if (ts.tv_sec > ctx->shroud.regen) {
 			ctx->shroud.regen = ts.tv_sec + 300;
 			kyrka_shroud_identity(ctx);
-			kyrka_logmsg(ctx, "shroud id regenerated");
 		}
 	}
 
