@@ -82,7 +82,7 @@ kyrka_ctx_alloc(void (*event)(struct kyrka *, union kyrka_event *, void *),
 		return (NULL);
 
 	ctx->offer.default_ttl = 15;
-	ctx->offer.default_next_send = 1;
+	ctx->offer.default_next_send = 3;
 	ctx->flags = KYRKA_FLAG_P2P_ACTIVE;
 
 	nyfe_zeroize_register(ctx, sizeof(*ctx));
