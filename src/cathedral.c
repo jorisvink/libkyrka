@@ -437,7 +437,9 @@ cathedral_p2p_recv(struct kyrka *ctx, struct kyrka_offer *op)
 		return;
 
 	evt.type = KYRKA_EVENT_PEER_DISCOVERY;
+
 	evt.peer.ip = info->peer_ip;
+	evt.peer.flags = info->flags;
 	evt.peer.port = info->peer_port;
 
 	ctx->event(ctx, &evt, ctx->udata);

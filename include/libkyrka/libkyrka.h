@@ -104,10 +104,17 @@ struct kyrka_event_exchange_info {
 	const char			*reason;
 };
 
+/*
+ * Set in an info offer from a cathedral if it sees the same external ipv4
+ * address for both peers related to the same tunnel.
+ */
+#define KYRKA_INFO_FLAG_SAME_EXTERNAL_IPV4	(1 << 1)
+
 struct kyrka_event_peer {
 	u_int32_t			type;
 	u_int32_t			ip;
 	u_int16_t			port;
+	u_int32_t			flags;
 };
 
 struct kyrka_event_ambry {
