@@ -214,7 +214,7 @@ key_offer_check(struct kyrka *ctx, u_int64_t now)
 		ctx->offer.force = 0;
 	} else if (ctx->rx.spi != 0) {
 		ctx->offer.default_ttl = 15;
-		ctx->offer.default_next_send = 3;
+		ctx->offer.default_next_send = 1;
 
 		if (ctx->rx.pkt > KYRKA_SA_PACKET_SOFT) {
 			offer_now = 1;
@@ -701,7 +701,7 @@ key_offer_clear(struct kyrka *ctx)
 
 	ctx->last_spi = 0;
 	ctx->offer.default_ttl = 15;
-	ctx->offer.default_next_send = 3;
+	ctx->offer.default_next_send = 1;
 
 	if (ctx->event != NULL) {
 		evt.type = KYRKA_EVENT_EXCHANGE_INFO;
