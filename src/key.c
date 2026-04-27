@@ -569,6 +569,8 @@ key_exchange_decapsulate(struct kyrka *ctx, struct kyrka_offer *op, time_t now)
 	if (xchg->spi != ctx->offer.local.spi) {
 		key_offer_clear(ctx);
 		ctx->offer.force = 1;
+		ctx->offer.next = now + 5;
+		kyrka_logmsg(ctx, "offer mismatching, trying re-sync");
 		return;
 	}
 
@@ -699,7 +701,6 @@ key_offer_clear(struct kyrka *ctx)
 
 	nyfe_mem_zero(&ctx->offer, sizeof(ctx->offer));
 
-	ctx->last_spi = 0;
 	ctx->offer.default_ttl = 15;
 	ctx->offer.default_next_send = 1;
 
