@@ -328,7 +328,6 @@ cathedral_send_offer(struct kyrka *ctx, u_int64_t magic)
 		if (ts.tv_sec > ctx->shroud.regen) {
 			ctx->shroud.regen = ts.tv_sec + 300;
 			kyrka_shroud_identity(ctx);
-			kyrka_logmsg(ctx, "shroud id regenerated");
 		}
 	}
 
@@ -438,7 +437,9 @@ cathedral_p2p_recv(struct kyrka *ctx, struct kyrka_offer *op)
 		return;
 
 	evt.type = KYRKA_EVENT_PEER_DISCOVERY;
+
 	evt.peer.ip = info->peer_ip;
+	evt.peer.flags = info->flags;
 	evt.peer.port = info->peer_port;
 
 	ctx->event(ctx, &evt, ctx->udata);

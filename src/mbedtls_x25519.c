@@ -27,6 +27,15 @@ static int	asymmetry_is_zero(const u_int8_t *, size_t);
 static int	asymmetry_random_bytes(void *, unsigned char *, size_t);
 
 /*
+ * Perform any one-time asymmetry initialization.
+ */
+int
+kyrka_asymmetry_init(void)
+{
+	return (0);
+}
+
+/*
  * Generate a new x25519 private key and derive its public key from it.
  */
 int
