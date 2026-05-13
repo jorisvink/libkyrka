@@ -103,6 +103,11 @@ kyrka_vicar_load(KYRKA *ctx, const char *path, const char *passphrase,
 		return (-1);
 	}
 
+	if (strlen(passphrase) >= sizeof(padded)) {
+		ctx->last_error = KYRKA_ERROR_PARAMETER;
+		return (-1);
+	}
+
 	if ((fd = kyrka_file_open(ctx, path)) == -1)
 		return (-1);
 
