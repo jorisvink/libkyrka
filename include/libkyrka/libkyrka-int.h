@@ -246,13 +246,13 @@ struct kyrka_shroud_hdr {
 } __attribute__((packed));
 
 /*
- * The length of the mask we XOR onto the packet if encapsulation is enabled.
- * The 20 bytes stems from the kyrka_offer_hdr having 4 bytes more than
- * a normal ESP header + packet number. So this is essentially
- * sizeof(struct kyrka_offer_hdr) - KYRKA_KEY_OFFER_SALT_LEN.
+ * The length of the mask we XOR onto the packet if shroud is enabled.
+ * We shroud the complete protocol meta-data for offers and normal traffic.
+ *
+ * Note that sanctum_proto_hdr is larger than struct sanctum_offer_hdr - salt
+ * and thus we use the protocol header as the base.
  */
-#define KYRKA_SHROUD_MASK_LEN		\
-    (sizeof(struct kyrka_offer_hdr) - KYRKA_KEY_OFFER_SALT_LEN)
+#define KYRKA_SHROUD_MASK_LEN		(sizeof(struct kyrka_proto_hdr))
 
 /* The header starts after our potential encapsulation. */
 #define KYRKA_PACKET_HEAD_OFFSET	sizeof(struct kyrka_shroud_hdr)
