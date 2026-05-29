@@ -99,7 +99,7 @@ kyrka_cipher_encrypt(struct kyrka_cipher *cipher)
 		return (-1);
 
 	if (mbedtls_gcm_update(&ctx->gcm, cipher->pt,
-	    cipher->data_len, cipher->pt, cipher->data_len, &data_len) != 0)
+	    cipher->data_len, cipher->ct, cipher->data_len, &data_len) != 0)
 		return (-1);
 
 	VERIFY(data_len == cipher->data_len);
@@ -143,7 +143,7 @@ kyrka_cipher_decrypt(struct kyrka_cipher *cipher)
 	    cipher->aad, cipher->aad_len) != 0)
 		return (-1);
 
-	if (mbedtls_gcm_update(&ctx->gcm, cipher->pt,
+	if (mbedtls_gcm_update(&ctx->gcm, cipher->ct,
 	    cipher->data_len, cipher->pt, cipher->data_len, &data_len) != 0)
 		return (-1);
 
@@ -174,5 +174,7 @@ kyrka_cipher_cleanup(void *arg)
 	cipher = arg;
 
 	mbedtls_gcm_free(&cipher->gcm);
+	nyfe_zeroize(cipher, sizeof(*cipher));
+
 	free(cipher);
 }
