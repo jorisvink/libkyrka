@@ -110,7 +110,6 @@ kyrka_ctx_alloc(void (*event)(struct kyrka *, union kyrka_event *, void *),
  * This means we copy if present:
  *	- kek
  *	- cathedral secret
- *	- encapsulation secret
  *	- shared symmetrical secret
  */
 int
@@ -122,13 +121,6 @@ kyrka_key_material_copy(KYRKA *ctx, KYRKA *src)
 	if (src == NULL) {
 		ctx->last_error = KYRKA_ERROR_PARAMETER;
 		return (-1);
-	}
-
-	if (src->flags & KYRKA_FLAG_ENCAPSULATION) {
-		nyfe_memcpy(ctx->encap.tek, src->encap.tek,
-		    sizeof(src->encap.tek));
-
-		ctx->flags |= KYRKA_FLAG_ENCAPSULATION;
 	}
 
 	if (src->flags & KYRKA_FLAG_DEVICE_KEK) {
@@ -298,27 +290,6 @@ kyrka_device_kek_load(KYRKA *ctx, const void *secret, size_t len)
 	kyrka_mask(ctx, ctx->cfg.kek, sizeof(ctx->cfg.kek));
 
 	ctx->flags |= KYRKA_FLAG_DEVICE_KEK;
-
-	return (0);
-}
-
-/*
- * Sets the encapsulation key (TEK) by copying it into our context.
- */
-int
-kyrka_encap_key_load(KYRKA *ctx, const void *key, size_t len)
-{
-	if (ctx == NULL)
-		return (-1);
-
-	if (key == NULL || len != sizeof(ctx->encap.tek)) {
-		ctx->last_error = KYRKA_ERROR_PARAMETER;
-		return (-1);
-	}
-
-	nyfe_memcpy(ctx->encap.tek, key, len);
-
-	ctx->flags |= KYRKA_FLAG_ENCAPSULATION;
 
 	return (0);
 }

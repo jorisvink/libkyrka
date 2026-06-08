@@ -67,9 +67,6 @@
 /* Length of our symmetrical keys, in bytes. */
 #define KYRKA_KEY_LENGTH			32
 
-/* Length for an encapsulation key in hex. */
-#define KYRKA_ENCAP_HEX_LEN			(KYRKA_KEY_LENGTH * 2)
-
 /* The nonce size, in our case 96-bit. */
 #define KYRKA_NONCE_LENGTH			12
 
@@ -563,13 +560,6 @@ struct kyrka {
 		u_int8_t		kek[KYRKA_KEY_LENGTH];
 		u_int8_t		secret[KYRKA_KEY_LENGTH];
 	} cfg;
-
-	/* Encapsulation. */
-	struct {
-		u_int64_t		pn;
-		u_int32_t		spi;
-		u_int8_t		tek[KYRKA_KEY_LENGTH];
-	} encap;
 
 	/* Cathedral config. */
 	struct {
