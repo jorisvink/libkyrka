@@ -539,7 +539,7 @@ kyrka_logmsg(KYRKA *ctx, const char *fmt, ...)
 	len = vsnprintf(buf, sizeof(buf), fmt, args);
 	va_end(args);
 
-	if (len == -1 || (size_t)len >= sizeof(buf))
+	if (len < 0 || (size_t)len >= sizeof(buf))
 		msg = "Failed to create a log message";
 	else
 		msg = buf;
