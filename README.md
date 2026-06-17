@@ -155,7 +155,7 @@ heaven_send_packet(struct kyrka_packet *pkt, u_int64_t seq, void *udata)
 }
 
 void
-purgatory_send_packet(const void *data, size_t len, u_int64_t seq, void *udata)
+purgatory_send_packet(struct kyrka_packet *pkt, u_int64_t seq, void *udata)
 {
 	size_t		len;
 	KYRKA		*ctx;
