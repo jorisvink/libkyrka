@@ -178,8 +178,12 @@ kyrka_shroud_packet(struct kyrka *ctx, struct kyrka_packet *pkt)
 	PRECOND(ctx != NULL);
 	PRECOND(pkt != NULL);
 	VERIFY(ctx->flags & KYRKA_FLAG_USE_SHROUD);
+	VERIFY((pkt->length + sizeof(*hdr) + 1) < sizeof(pkt->data));
 
-	VERIFY(pkt->length + sizeof(*hdr) < sizeof(pkt->data));
+	if (ctx->cfg.mtu == 0) {
+		ctx->last_error = KYRKA_ERROR_MTU_SIZE;
+		return (-1);
+	}
 
 	hdr = kyrka_packet_start(pkt);
 	kyrka_random_bytes(hdr->seed_data, sizeof(hdr->seed_data));
@@ -193,26 +197,26 @@ kyrka_shroud_packet(struct kyrka *ctx, struct kyrka_packet *pkt)
 		kyrka_random_bytes(hdr->seed_id, sizeof(hdr->seed_id));
 	}
 
-	if (kyrka_shroud_xor(ctx, pkt) == -1)
+	if (kyrka_shroud_xor(ctx, pkt, 0) == -1)
 		return (-1);
-
-	pkt->length += sizeof(*hdr);
 
 	return (0);
 }
 
 /*
- * Calculate the shroud mask and xor it ontop the protocol header.
+ * Calculate the shroud mask and xor it onto the entire packet.
  */
 int
-kyrka_shroud_xor(struct kyrka *ctx, struct kyrka_packet *pkt)
+kyrka_shroud_xor(struct kyrka *ctx, struct kyrka_packet *pkt, int unshroud)
 {
 	struct nyfe_kmac256		kdf;
 	struct kyrka_shroud_hdr		*hdr;
 	const u_int8_t			*key;
 	u_int32_t			which;
-	size_t				idx, len;
-	u_int8_t			*data, mask[KYRKA_SHROUD_MASK_LEN];
+	int				steps;
+	size_t				idx, len, length;
+	u_int32_t			min, avail, grow, orig;
+	u_int8_t			*data, mask[KYRKA_SHROUD_MASK_MAX];
 
 	PRECOND(ctx != NULL);
 	PRECOND(pkt != NULL);
@@ -243,21 +247,72 @@ kyrka_shroud_xor(struct kyrka *ctx, struct kyrka_packet *pkt)
 	hdr = kyrka_packet_start(pkt);
 	data = kyrka_packet_head(pkt);
 
+	if (unshroud) {
+		VERIFY(pkt->length >= sizeof(*hdr));
+		length = pkt->length - sizeof(*hdr);
+	} else {
+		length = sizeof(*hdr) + pkt->length + 1;
+		VERIFY(length > pkt->length && length <= ctx->cfg.mtu);
+
+		data[pkt->length++] = 0xff;
+
+		orig = pkt->length;
+		pkt->length += sizeof(*hdr);
+
+		if (pkt->length < ctx->cfg.mtu) {
+			avail = ctx->cfg.mtu - pkt->length;
+
+			if (avail >= 2) {
+				min = -avail % avail;
+				for (;;) {
+					kyrka_random_bytes(&grow, sizeof(grow));
+					if (grow >= min)
+						break;
+				}
+			} else {
+				grow = 0;
+			}
+
+			grow = grow % avail;
+			if (grow > 0)
+				memset(&data[orig], 0, grow);
+
+			pkt->length += grow;
+			VERIFY(pkt->length < KYRKA_PACKET_MAX_LEN);
+		}
+
+		length = pkt->length - sizeof(*hdr);
+	}
+
 	nyfe_zeroize_register(&kdf, sizeof(kdf));
 	nyfe_kmac256_init(&kdf, key, len, KYRKA_SHROUD_LABEL,
 	    sizeof(KYRKA_SHROUD_LABEL) - 1);
 	nyfe_kmac256_update(&kdf, hdr, sizeof(*hdr));
-	nyfe_kmac256_final(&kdf, mask, sizeof(mask));
+	nyfe_kmac256_final(&kdf, mask, length);
 	nyfe_zeroize(&kdf, sizeof(kdf));
 
-	/*
-	 * We do not need to check pkt length here before XOR:ing
-	 * the mask onto its data. The packet buffer will have
-	 * KYRKA_SHROUD_MASK_LEN bytes available even if no data
-	 * was actually written into it.
-	 */
-	for (idx = 0; idx < sizeof(mask); idx++)
+	for (idx = 0; idx < length; idx++)
 		data[idx] ^= mask[idx];
+
+	if (unshroud) {
+		pkt->length -= sizeof(*hdr);
+
+		steps = 0;
+		orig = pkt->length;
+
+		while (pkt->length > 0 && data[pkt->length - 1] == 0x00) {
+			pkt->length--;
+			steps++;
+		}
+
+		if (pkt->length == 0)
+			return (-1);
+
+		if (steps > 0 && data[pkt->length - 1] != 0xff)
+			pkt->length = orig;
+		else if (steps > 0 || data[pkt->length - 1] == 0xff)
+			pkt->length--;
+	}
 
 	return (0);
 }

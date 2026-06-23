@@ -243,13 +243,10 @@ struct kyrka_shroud_hdr {
 } __attribute__((packed));
 
 /*
- * The length of the mask we XOR onto the packet if shroud is enabled.
- * We shroud the complete protocol meta-data for offers and normal traffic.
- *
- * Note that sanctum_proto_hdr is larger than struct sanctum_offer_hdr - salt
- * and thus we use the protocol header as the base.
+ * The maximum mask length for a shroud operation, which covers
+ * the entire packet.
  */
-#define KYRKA_SHROUD_MASK_LEN		(sizeof(struct kyrka_proto_hdr))
+#define KYRKA_SHROUD_MASK_MAX		KYRKA_PACKET_DATA_LEN
 
 /* The header starts after our potential encapsulation. */
 #define KYRKA_PACKET_HEAD_OFFSET	sizeof(struct kyrka_shroud_hdr)
@@ -557,6 +554,7 @@ struct kyrka {
 	/* Configurable stuff. */
 	struct {
 		u_int16_t		spi;
+		u_int16_t		mtu;
 		u_int8_t		kek[KYRKA_KEY_LENGTH];
 		u_int8_t		secret[KYRKA_KEY_LENGTH];
 	} cfg;
@@ -653,8 +651,8 @@ void	kyrka_shroud_kdf(struct kyrka *, int);
 void	kyrka_shroud_identity(struct kyrka *);
 void	kyrka_shroud_base_identity(struct kyrka *);
 int	kyrka_shroud_has_key(struct kyrka *, u_int32_t);
-int	kyrka_shroud_xor(struct kyrka *, struct kyrka_packet *);
 int	kyrka_shroud_packet(struct kyrka *, struct kyrka_packet *);
+int	kyrka_shroud_xor(struct kyrka *, struct kyrka_packet *, int);
 
 /* src/packet.c */
 void	*kyrka_packet_head(struct kyrka_packet *);

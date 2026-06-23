@@ -98,7 +98,8 @@ kyrka_key_manage(struct kyrka *ctx)
 			if (ctx->offer.flags == 0)
 				key_offer_clear(ctx);
 		} else if ((u_int64_t)ts.tv_sec >= ctx->offer.pulse) {
-			key_offer_send(ctx, ts.tv_sec);
+			if (key_offer_send(ctx, ts.tv_sec) == -1)
+				return (-1);
 		}
 	} else {
 		if (key_offer_check(ctx, ts.tv_sec) == -1)
@@ -409,6 +410,7 @@ key_offer_send_fragment(struct kyrka *ctx, int which, u_int8_t frag)
 
 	if (kyrka_offer_encrypt(&okm, op) == -1) {
 		nyfe_zeroize(&okm, sizeof(okm));
+		ctx->last_error = KYRKA_ERROR_INTERNAL;
 		return (-1);
 	}
 

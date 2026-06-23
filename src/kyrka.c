@@ -81,11 +81,11 @@ kyrka_ctx_alloc(void (*event)(struct kyrka *, union kyrka_event *, void *),
 	if ((ctx = calloc(1, sizeof(*ctx))) == NULL)
 		return (NULL);
 
+	nyfe_zeroize_register(ctx, sizeof(*ctx));
+
 	ctx->offer.default_ttl = 15;
 	ctx->offer.default_next_send = 1;
 	ctx->flags = KYRKA_FLAG_P2P_ACTIVE;
-
-	nyfe_zeroize_register(ctx, sizeof(*ctx));
 
 	kyrka_random_init();
 	kyrka_random_bytes(ctx->mask, sizeof(ctx->mask));
@@ -102,6 +102,26 @@ kyrka_ctx_alloc(void (*event)(struct kyrka *, union kyrka_event *, void *),
 	ctx->event = event;
 
 	return (ctx);
+}
+
+/*
+ * Set the MTU size, libkyrka will use this when calculating overheads
+ * and other things such as shroud sizes.
+ */
+int
+kyrka_mtu_size(KYRKA *ctx, u_int16_t mtu)
+{
+	if (ctx == NULL)
+		return (-1);
+
+	if (mtu < sizeof(struct kyrka_offer) || mtu > KYRKA_PACKET_MAX_LEN) {
+		ctx->last_error = KYRKA_ERROR_PARAMETER;
+		return (-1);
+	}
+
+	ctx->cfg.mtu = mtu;
+
+	return (0);
 }
 
 /*

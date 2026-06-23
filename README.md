@@ -179,6 +179,13 @@ if (kyrka_purgatory_ifc(ctx, purgatory_send_packet, NULL) == -1)
 	errx(1, "kyrka_purgatory_ifc: %d", kyrka_last_error(ctx));
 ```
 
+Setting the MTU size before transmitting is required:
+
+```
+if (kyrka_mtu_size(ctx, 1422) == -1)
+	errx(1, "kyrka_mtu_size: %d", kyrka_last_error(ctx));
+```
+
 Your program is responsible for sending/receiving data and feeding
 it to the correct function for encryption (kyrka_heaven_input()) or
 decryption (kyrka_purgatory_input()).

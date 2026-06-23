@@ -68,6 +68,7 @@ extern "C" {
 #define KYRKA_ERROR_NO_COSK		15
 #define KYRKA_ERROR_TIMEOUT		16
 #define KYRKA_ERROR_SHROUD_NO_KEYS	17
+#define KYRKA_ERROR_MTU_SIZE		18
 
 /*
  * Events that can occur and can be seen if an event callback was
@@ -217,6 +218,7 @@ KYRKA	*kyrka_ctx_alloc(void (*event)(KYRKA *, union kyrka_event *, void *),
 void	kyrka_fatal_callback(void (*)(const char *, va_list));
 
 int	kyrka_key_manage(KYRKA *);
+int	kyrka_mtu_size(KYRKA *, u_int16_t);
 int	kyrka_secret_load_path(KYRKA *, const char *);
 int	kyrka_secret_load(KYRKA *, const void *, size_t);
 int	kyrka_encap_key_load(KYRKA *, const void *, size_t);

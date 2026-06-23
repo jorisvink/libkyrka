@@ -270,10 +270,15 @@ purgatory_unshroud(struct kyrka *ctx, struct kyrka_packet *pkt)
 		return (-1);
 	}
 
-	if (kyrka_shroud_xor(ctx, pkt) == -1)
+	if (kyrka_shroud_xor(ctx, pkt, 1) == -1)
 		return (-1);
 
-	pkt->length -= sizeof(struct kyrka_shroud_hdr);
+	if (pkt->length < sizeof(struct kyrka_proto_hdr) +
+	    sizeof(struct kyrka_proto_tail) + KYRKA_TAG_LENGTH) {
+		kyrka_logmsg(ctx,
+		    "bad packet size after unshroud (len=%zu)", pkt->length);
+		return (-1);
+	}
 
 	return (0);
 }
