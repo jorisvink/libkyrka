@@ -81,11 +81,11 @@ kyrka_ctx_alloc(void (*event)(struct kyrka *, union kyrka_event *, void *),
 	if ((ctx = calloc(1, sizeof(*ctx))) == NULL)
 		return (NULL);
 
+	nyfe_zeroize_register(ctx, sizeof(*ctx));
+
 	ctx->offer.default_ttl = 15;
 	ctx->offer.default_next_send = 1;
 	ctx->flags = KYRKA_FLAG_P2P_ACTIVE;
-
-	nyfe_zeroize_register(ctx, sizeof(*ctx));
 
 	kyrka_random_init();
 	kyrka_random_bytes(ctx->mask, sizeof(ctx->mask));
@@ -105,12 +105,31 @@ kyrka_ctx_alloc(void (*event)(struct kyrka *, union kyrka_event *, void *),
 }
 
 /*
+ * Set the MTU size, libkyrka will use this when calculating overheads
+ * and other things such as shroud sizes.
+ */
+int
+kyrka_mtu_size(KYRKA *ctx, u_int16_t mtu)
+{
+	if (ctx == NULL)
+		return (-1);
+
+	if (mtu < sizeof(struct kyrka_offer) || mtu > KYRKA_PACKET_MAX_LEN) {
+		ctx->last_error = KYRKA_ERROR_PARAMETER;
+		return (-1);
+	}
+
+	ctx->cfg.mtu = mtu;
+
+	return (0);
+}
+
+/*
  * Copy all key material that is not session keys from one context to another.
  *
  * This means we copy if present:
  *	- kek
  *	- cathedral secret
- *	- encapsulation secret
  *	- shared symmetrical secret
  */
 int
@@ -122,13 +141,6 @@ kyrka_key_material_copy(KYRKA *ctx, KYRKA *src)
 	if (src == NULL) {
 		ctx->last_error = KYRKA_ERROR_PARAMETER;
 		return (-1);
-	}
-
-	if (src->flags & KYRKA_FLAG_ENCAPSULATION) {
-		nyfe_memcpy(ctx->encap.tek, src->encap.tek,
-		    sizeof(src->encap.tek));
-
-		ctx->flags |= KYRKA_FLAG_ENCAPSULATION;
 	}
 
 	if (src->flags & KYRKA_FLAG_DEVICE_KEK) {
@@ -298,27 +310,6 @@ kyrka_device_kek_load(KYRKA *ctx, const void *secret, size_t len)
 	kyrka_mask(ctx, ctx->cfg.kek, sizeof(ctx->cfg.kek));
 
 	ctx->flags |= KYRKA_FLAG_DEVICE_KEK;
-
-	return (0);
-}
-
-/*
- * Sets the encapsulation key (TEK) by copying it into our context.
- */
-int
-kyrka_encap_key_load(KYRKA *ctx, const void *key, size_t len)
-{
-	if (ctx == NULL)
-		return (-1);
-
-	if (key == NULL || len != sizeof(ctx->encap.tek)) {
-		ctx->last_error = KYRKA_ERROR_PARAMETER;
-		return (-1);
-	}
-
-	nyfe_memcpy(ctx->encap.tek, key, len);
-
-	ctx->flags |= KYRKA_FLAG_ENCAPSULATION;
 
 	return (0);
 }
@@ -539,7 +530,7 @@ kyrka_logmsg(KYRKA *ctx, const char *fmt, ...)
 	len = vsnprintf(buf, sizeof(buf), fmt, args);
 	va_end(args);
 
-	if (len == -1 || (size_t)len >= sizeof(buf))
+	if (len < 0 || (size_t)len >= sizeof(buf))
 		msg = "Failed to create a log message";
 	else
 		msg = buf;

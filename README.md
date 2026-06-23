@@ -1,11 +1,8 @@
 # Kyrka
 
 libkyrka implements the <a href="https://sanctorum.se/sanctum">sanctum</a>
-protocol in library form allowing you to establish sanctum tunnels directly
-from your application without the need for the actual daemon.
-
-Note that while the sanctum daemon is built upon proper privilege separation,
-the library will not provide this to you unless you do it yourself somehow.
+protocol in library form allowing you to establish p2p e2ee sanctum tunnels
+directly from your application.
 
 Because it implements the sanctum protocol it can talk to sanctum daemons
 and even make use of existing sanctum infrastructure (such as cathedrals
@@ -180,6 +177,13 @@ if (kyrka_heaven_ifc(ctx, heaven_send_packet, NULL) == -1)
 
 if (kyrka_purgatory_ifc(ctx, purgatory_send_packet, NULL) == -1)
 	errx(1, "kyrka_purgatory_ifc: %d", kyrka_last_error(ctx));
+```
+
+Setting the MTU size before transmitting is required:
+
+```
+if (kyrka_mtu_size(ctx, 1422) == -1)
+	errx(1, "kyrka_mtu_size: %d", kyrka_last_error(ctx));
 ```
 
 Your program is responsible for sending/receiving data and feeding

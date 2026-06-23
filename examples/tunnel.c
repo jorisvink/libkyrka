@@ -33,6 +33,9 @@
 #include <arpa/inet.h>
 #include <netinet/in.h>
 
+#include <linux/ip.h>
+#include <linux/udp.h>
+
 #include <libkyrka/libkyrka.h>
 
 #include <errno.h>
@@ -199,6 +202,10 @@ tunnel_setup(void)
 
 	if (kyrka_shroud_enable(tun->ctx) == -1)
 		fatal("cannot enable shroud: %d", kyrka_last_error(tun->ctx));
+
+	if (kyrka_mtu_size(tun->ctx,
+	    1500 - sizeof(struct iphdr) - sizeof(struct udphdr)) == -1)
+		fatal("failed to set mtu: %d", kyrka_last_error(tun->ctx));
 
 	return (tun);
 }

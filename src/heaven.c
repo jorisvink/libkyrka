@@ -103,12 +103,19 @@ kyrka_heaven_input(struct kyrka *ctx, struct kyrka_packet *pkt)
 	}
 
 	overhead = sizeof(*hdr) + sizeof(*tail) + KYRKA_TAG_LENGTH;
+	if (ctx->flags & KYRKA_FLAG_USE_SHROUD)
+		overhead += sizeof(struct kyrka_shroud_hdr) + 1;
 
 	if ((pkt->length + overhead < pkt->length) ||
 	    (pkt->length + overhead > sizeof(pkt->data))) {
 		ctx->last_error = KYRKA_ERROR_INTERNAL;
 		kyrka_logmsg(ctx,
 		    "packet length + overhead too large to fit");
+		return (-1);
+	}
+
+	if ((pkt->length + overhead) > ctx->cfg.mtu) {
+		ctx->last_error = KYRKA_ERROR_MTU_SIZE;
 		return (-1);
 	}
 

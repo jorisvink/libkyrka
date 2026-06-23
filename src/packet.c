@@ -144,7 +144,7 @@ kyrka_packet_crypto_checklen(struct kyrka *ctx, struct kyrka_packet *pkt)
 	    sizeof(struct kyrka_proto_tail) + KYRKA_TAG_LENGTH;
 
 	if (ctx->flags & KYRKA_FLAG_USE_SHROUD)
-		min += sizeof(struct kyrka_shroud_hdr);
+		min += sizeof(struct kyrka_shroud_hdr) + 1;
 
 	if (pkt->length < min)
 		return (-1);
