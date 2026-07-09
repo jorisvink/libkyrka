@@ -114,7 +114,7 @@ kyrka_mtu_size(KYRKA *ctx, u_int16_t mtu)
 	if (ctx == NULL)
 		return (-1);
 
-	if (mtu < sizeof(struct kyrka_offer) || mtu > KYRKA_PACKET_MAX_LEN) {
+	if (mtu < sizeof(struct kyrka_offer) || mtu > KYRKA_PACKET_DATA_LEN) {
 		ctx->last_error = KYRKA_ERROR_PARAMETER;
 		return (-1);
 	}
