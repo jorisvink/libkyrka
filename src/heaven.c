@@ -114,7 +114,7 @@ kyrka_heaven_input(struct kyrka *ctx, struct kyrka_packet *pkt)
 		return (-1);
 	}
 
-	if ((pkt->length + overhead) > ctx->cfg.mtu) {
+	if ((pkt->length + overhead) > KYRKA_PACKET_DATA_LEN) {
 		ctx->last_error = KYRKA_ERROR_MTU_SIZE;
 		return (-1);
 	}

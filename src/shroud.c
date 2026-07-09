@@ -252,7 +252,7 @@ kyrka_shroud_xor(struct kyrka *ctx, struct kyrka_packet *pkt, int unshroud)
 		length = pkt->length - sizeof(*hdr);
 	} else {
 		length = sizeof(*hdr) + pkt->length + 1;
-		VERIFY(length > pkt->length && length <= ctx->cfg.mtu);
+		VERIFY(length > pkt->length && length <= KYRKA_PACKET_MAX_LEN);
 
 		data[pkt->length++] = 0xff;
 
