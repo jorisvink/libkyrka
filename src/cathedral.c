@@ -367,7 +367,7 @@ cathedral_send_offer(struct kyrka *ctx, u_int64_t magic)
 		if (ctx->cathedral.remembrance)
 			info->flags |= KYRKA_INFO_FLAG_REMEMBRANCE;
 
-		if (ctx->cathedral.ambry_skip)
+		if (!(ctx->flags & KYRKA_FLAG_DEVICE_KEK))
 			info->flags |= KYRKA_INFO_FLAG_SKIP_AMBRY;
 	} else {
 		op->hdr.flock_dst = 0;
