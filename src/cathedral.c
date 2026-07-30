@@ -365,7 +365,10 @@ cathedral_send_offer(struct kyrka *ctx, u_int64_t magic)
 		info->rx_pending = ctx->rx.spi;
 
 		if (ctx->cathedral.remembrance)
-			info->flags = KYRKA_INFO_FLAG_REMEMBRANCE;
+			info->flags |= KYRKA_INFO_FLAG_REMEMBRANCE;
+
+		if (ctx->cathedral.ambry_skip)
+			info->flags |= KYRKA_INFO_FLAG_SKIP_AMBRY;
 	} else {
 		op->hdr.flock_dst = 0;
 

@@ -192,6 +192,7 @@ struct kyrka_cathedral_cfg {
 	u_int32_t	identity;
 
 	int		hidden;
+	int		ambry_skip;
 	int		remembrance;
 
 	void		(*send)(struct kyrka_packet *, u_int64_t, void *);

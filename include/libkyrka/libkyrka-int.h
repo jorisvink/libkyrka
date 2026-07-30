@@ -355,6 +355,9 @@ struct kyrka_remembrance_offer {
 /* Set in the info offer if we want remembrances back. */
 #define KYRKA_INFO_FLAG_REMEMBRANCE	(1 << 0)
 
+/* Set in the info offer if we do not cathedral to send us ambries. */
+#define KYRKA_INFO_FLAG_SKIP_AMBRY	(1 << 1)
+
 struct kyrka_info_offer {
 	u_int32_t		flags;
 
@@ -564,6 +567,7 @@ struct kyrka {
 		struct kyrka_ifc	ifc;
 		u_int32_t		ambry;
 		u_int64_t		ambry_recv;
+		int			ambry_skip;
 		int			ambry_switch;
 
 		u_int32_t		identity;
