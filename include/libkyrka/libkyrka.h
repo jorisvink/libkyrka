@@ -45,7 +45,7 @@ extern "C" {
 #define KYRKA_CATHEDRALS_MAX		32
 
 /* The libkyrka API version, bumped when we break / change stuff. */
-#define KYRKA_API_VERSION		2
+#define KYRKA_API_VERSION		3
 
 /*
  * Library error codes.
@@ -187,6 +187,7 @@ struct kyrka_cathedral_cfg {
 	u_int64_t	flock_src;
 	u_int64_t	flock_dst;
 
+	u_int8_t	hops;
 	u_int16_t	group;
 	u_int16_t	tunnel;
 	u_int32_t	identity;

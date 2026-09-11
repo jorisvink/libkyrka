@@ -67,7 +67,22 @@ kyrka_cathedral_config(struct kyrka *ctx, struct kyrka_cathedral_cfg *cfg)
 		return (-1);
 	}
 
+	if (cfg->hops > KYRKA_CATHEDRAL_HOPS) {
+		ctx->last_error = KYRKA_ERROR_PARAMETER;
+		return (-1);
+	}
+
+	if (cfg->hops != 0) {
+		if (!(ctx->flags & KYRKA_FLAG_USE_SHROUD)) {
+			ctx->last_error = KYRKA_ERROR_PARAMETER;
+			return (-1);
+		}
+
+		ctx->flags |= KYRKA_FLAG_USE_COMMIXTION;
+	}
+
 	ctx->cfg.spi = cfg->tunnel;
+	ctx->cathedral.hops = cfg->hops;
 	ctx->cathedral.group = cfg->group;
 	ctx->cathedral.ifc.send = cfg->send;
 	ctx->cathedral.hidden = cfg->hidden;

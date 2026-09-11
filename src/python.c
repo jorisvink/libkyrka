@@ -66,6 +66,7 @@ static void		python_fatal(const char *, va_list);
 
 static PyObject		*pykyrka_alloc(PyObject *, PyObject *);
 static PyObject		*pykyrka_version(PyObject *, PyObject *);
+static PyObject		*pykyrka_mtu_size(PyObject *, PyObject *);
 static PyObject		*pykyrka_key_manage(PyObject *, PyObject *);
 static PyObject		*pykyrka_p2p_active(PyObject *, PyObject *);
 static PyObject		*pykyrka_secret_load(PyObject *, PyObject *);
@@ -104,6 +105,8 @@ static int		python_dict_add_string(PyObject *,
 static int		python_dict_add_uint64(PyObject *,
 			    const char *, u_int64_t);
 
+static int		python_uint8_from_dict(PyObject *,
+			    const char *, u_int8_t *);
 static int		python_uint16_from_dict(PyObject *,
 			    const char *, u_int16_t *);
 static int		python_uint32_from_dict(PyObject *,
@@ -120,6 +123,7 @@ static void	kyrka_cb_purgatory(struct kyrka_packet *, u_int64_t, void *);
  * The libkyrka context methods exposed to python.
  */
 static PyMethodDef pykyrka_methods[] = {
+	METHOD("mtu_size", pykyrka_mtu_size, METH_VARARGS),
 	METHOD("key_manage", pykyrka_key_manage, METH_NOARGS),
 	METHOD("p2p_active", pykyrka_p2p_active, METH_VARARGS),
 	METHOD("secret_load", pykyrka_secret_load, METH_VARARGS),
@@ -476,6 +480,35 @@ pykyrka_dealloc(struct pykyrka *ctx)
 
 	kyrka_ctx_free(ctx->kyrka);
 	PyObject_Del((PyObject *)ctx);
+}
+
+/*
+ * Entry from python for an allocated context key_manage().
+ */
+static PyObject *
+pykyrka_mtu_size(PyObject *self, PyObject *args)
+{
+	int			mtu;
+	struct pykyrka		*ctx;
+
+	PRECOND(self != NULL);
+
+	if (!PyArg_ParseTuple(args, "i", &mtu))
+		return (NULL);
+
+	if (mtu < 576 || mtu > 1500) {
+		PyErr_SetString(PyExc_RuntimeError, "mtu size incorrect");
+		return (NULL);
+	}
+
+	ctx = (struct pykyrka *)self;
+
+	if (kyrka_mtu_size(ctx->kyrka, mtu) == -1) {
+		python_kyrka_exception(kyrka_last_error(ctx->kyrka));
+		return (NULL);
+	}
+
+	Py_RETURN_TRUE;
 }
 
 /*
@@ -854,6 +887,9 @@ pykyrka_cathedral_configure(PyObject *self, PyObject *args, PyObject *kwargs)
 	if (python_uint16_from_dict(kwargs, "group", &cfg.group) == -1)
 		return (NULL);
 
+	if (python_uint8_from_dict(kwargs, "hops", &cfg.hops) == -1)
+		return (NULL);
+
 	if (python_bool_from_dict(kwargs, "hidden", &cfg.hidden) == -1)
 		PyErr_Clear();
 
@@ -999,6 +1035,32 @@ python_callback_run(struct pykyrka *ctx, struct callback *cb,
 	Py_DECREF(obj);
 	Py_DECREF(bytes);
 	Py_XDECREF(result);
+}
+
+/*
+ * Helper function to obtain an uint8 from a dict, with range checking.
+ */
+static int
+python_uint8_from_dict(PyObject *dict, const char *key, u_int8_t *val)
+{
+	u_int64_t		result;
+
+	PRECOND(dict != NULL);
+	PRECOND(key != NULL);
+	PRECOND(val != NULL);
+
+	if (python_uint64_from_dict(dict, key, &result) == -1)
+		return (-1);
+
+	if (result > UCHAR_MAX) {
+		PyErr_Format(PyExc_RuntimeError,
+		    "integer 0x%" PRIx64 "out of range for uint8", result);
+		return (-1);
+	}
+
+	*val = result;
+
+	return (0);
 }
 
 /*
