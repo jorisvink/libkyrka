@@ -239,10 +239,8 @@ kyrka_shroud_xor(struct kyrka *ctx, struct kyrka_packet *pkt, int unshroud)
 		return (-1);
 	}
 
-	if (!(ctx->flags & which)) {
-		ctx->last_error = KYRKA_ERROR_SHROUD_NO_KEYS;
+	if (kyrka_shroud_has_key(ctx, which) == -1)
 		return (-1);
-	}
 
 	hdr = kyrka_packet_start(pkt);
 	data = kyrka_packet_head(pkt);

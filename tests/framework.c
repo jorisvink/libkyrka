@@ -27,6 +27,10 @@
 
 #include "framework.h"
 
+#define COLOR_RED	"\033[31m"
+#define COLOR_GREEN	"\033[32m"
+#define COLOR_RESET	"\033[0m"
+
 /*
  * A single test with its name and callback function. The child process
  * its exit status is recorded in status.
@@ -51,6 +55,8 @@ static TAILQ_HEAD(, test)		tests;
 int
 main(void)
 {
+	setvbuf(stdout, NULL, _IOLBF, 0);
+
 	TAILQ_INIT(&tests);
 
 	test_entry();
@@ -83,9 +89,15 @@ test_framework_register(const char *name, void (*entry)(void))
 void
 test_framework_run(void)
 {
-	pid_t			pid;
-	struct test		*test;
-	int			status;
+	pid_t		pid;
+	struct test	*test;
+	const char	*pass, *fail, *reset;
+	int		status, failed, total, color;
+
+	color = isatty(STDOUT_FILENO);
+	pass = color ? COLOR_GREEN : "";
+	fail = color ? COLOR_RED : "";
+	reset = color ? COLOR_RESET : "";
 
 	printf("Test schedule\n");
 	TAILQ_FOREACH(test, &tests, list)
@@ -121,13 +133,39 @@ test_framework_run(void)
 		}
 	}
 
+	failed = 0;
+	total = 0;
+
 	TAILQ_FOREACH(test, &tests, list) {
+		total++;
+
 		if (WIFEXITED(test->status) && WEXITSTATUS(test->status) == 0) {
-			printf("  %s: success\n", test->name);
+			printf("  %s[PASS]%s %s\n", pass, reset, test->name);
+			continue;
+		}
+
+		failed++;
+
+		if (WIFEXITED(test->status)) {
+			printf("  %s[FAIL]%s %s (exit code %d)\n",
+			    fail, reset, test->name,
+			    WEXITSTATUS(test->status));
+		} else if (WIFSIGNALED(test->status)) {
+			printf("  %s[FAIL]%s %s (%s)\n", fail, reset,
+			    test->name, strsignal(WTERMSIG(test->status)));
 		} else {
-			printf("  %s: failed (%d)\n", test->name, test->status);
+			printf("  %s[FAIL]%s %s (status 0x%x)\n",
+			    fail, reset, test->name, test->status);
 		}
 	}
+
+	printf("\nSummary: %s%d/%d passed%s", failed == 0 ? pass : fail,
+	    total - failed, total, reset);
+	if (failed != 0)
+		printf(", %s%d failed%s", fail, failed, reset);
+	printf("\n");
+
+	exit(failed == 0 ? 0 : 1);
 }
 
 /* Bad juju happened. */

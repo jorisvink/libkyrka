@@ -46,7 +46,7 @@ api_populate_secret_key(struct kyrka *ctx, void *ptr, size_t len)
 }
 
 static void
-api_generic_callback(const void *data, size_t len, u_int64_t seq, void *udata)
+api_generic_callback(struct kyrka_packet *pkt, u_int64_t seq, void *udata)
 {
 }
 
@@ -222,47 +222,224 @@ api_kyrka_device_kek_load(void)
 }
 
 static void
-api_kyrka_encap_key_load(void)
+api_kyrka_cathedral_cosk_load(void)
 {
-	int			ret;
-	struct kyrka		*ctx;
-	u_int8_t		expected[32];
-
-	kyrka_random_init();
+	int		ret;
+	struct kyrka	*ctx;
+	u_int8_t	expected[KYRKA_ED25519_SIGN_SECRET_LENGTH];
 
 	ctx = kyrka_ctx_alloc(NULL, NULL);
 	VERIFY(ctx != NULL);
 
-	ret = kyrka_encap_key_load(NULL, NULL, 0);
+	ret = kyrka_cathedral_cosk_load(NULL, NULL, 0);
 	VERIFY(ret == -1);
-	VERIFY(!(ctx->flags & KYRKA_FLAG_ENCAPSULATION));
+	VERIFY(!(ctx->flags & KYRKA_FLAG_CATHEDRAL_SIGNING_KEY));
 
-	ret = kyrka_encap_key_load(ctx, NULL, 0);
-	VERIFY(ret == -1);
-	VERIFY(kyrka_last_error(ctx) == KYRKA_ERROR_PARAMETER);
-	VERIFY(!(ctx->flags & KYRKA_FLAG_ENCAPSULATION));
-
-	api_populate_secret_key(ctx, expected, sizeof(expected));
-
-	ret = kyrka_encap_key_load(ctx, expected, 0);
+	ret = kyrka_cathedral_cosk_load(ctx, NULL, 0);
 	VERIFY(ret == -1);
 	VERIFY(kyrka_last_error(ctx) == KYRKA_ERROR_PARAMETER);
-	VERIFY(!(ctx->flags & KYRKA_FLAG_ENCAPSULATION));
+	VERIFY(!(ctx->flags & KYRKA_FLAG_CATHEDRAL_SIGNING_KEY));
 
-	ret = kyrka_encap_key_load(ctx, expected, sizeof(expected));
-	VERIFY(ret == 0);
-	VERIFY(ctx->flags & KYRKA_FLAG_ENCAPSULATION);
+	memset(expected, 0x5a, sizeof(expected));
 
-	ret = memcmp(ctx->encap.tek, expected, sizeof(expected));
+	ret = kyrka_cathedral_cosk_load(ctx, expected, 0);
+	VERIFY(ret == -1);
+	VERIFY(kyrka_last_error(ctx) == KYRKA_ERROR_PARAMETER);
+	VERIFY(!(ctx->flags & KYRKA_FLAG_CATHEDRAL_SIGNING_KEY));
+
+	ret = kyrka_cathedral_cosk_load(ctx, expected, sizeof(expected));
 	VERIFY(ret == 0);
+	VERIFY(ctx->flags & KYRKA_FLAG_CATHEDRAL_SIGNING_KEY);
+
+	kyrka_mask(ctx, ctx->cathedral.sk, sizeof(ctx->cathedral.sk));
+	ret = memcmp(ctx->cathedral.sk, expected, sizeof(expected));
+	VERIFY(ret == 0);
+}
+
+static void
+api_kyrka_version(void)
+{
+	const char	*version;
+
+	version = kyrka_version();
+	VERIFY(version != NULL);
+	VERIFY(strlen(version) > 0);
+}
+
+static void
+api_kyrka_last_error_no_context(void)
+{
+	VERIFY(kyrka_last_error(NULL) == KYRKA_ERROR_NO_CONTEXT);
+}
+
+static void
+api_kyrka_mtu_size(void)
+{
+	int		ret;
+	struct kyrka	*ctx;
+
+	ctx = kyrka_ctx_alloc(NULL, NULL);
+	VERIFY(ctx != NULL);
+
+	ret = kyrka_mtu_size(NULL, 1500);
+	VERIFY(ret == -1);
+
+	ret = kyrka_mtu_size(ctx, sizeof(struct kyrka_offer) - 1);
+	VERIFY(ret == -1);
+	VERIFY(kyrka_last_error(ctx) == KYRKA_ERROR_PARAMETER);
+	VERIFY(ctx->cfg.mtu == 0);
+
+	ret = kyrka_mtu_size(ctx, KYRKA_PACKET_DATA_LEN + 1);
+	VERIFY(ret == -1);
+	VERIFY(kyrka_last_error(ctx) == KYRKA_ERROR_PARAMETER);
+	VERIFY(ctx->cfg.mtu == 0);
+
+	ret = kyrka_mtu_size(ctx, sizeof(struct kyrka_offer));
+	VERIFY(ret == 0);
+	VERIFY(ctx->cfg.mtu == sizeof(struct kyrka_offer));
+
+	ret = kyrka_mtu_size(ctx, KYRKA_PACKET_DATA_LEN);
+	VERIFY(ret == 0);
+	VERIFY(ctx->cfg.mtu == KYRKA_PACKET_DATA_LEN);
+}
+
+static void
+api_kyrka_p2p_active(void)
+{
+	int		ret;
+	struct kyrka	*ctx;
+
+	ctx = kyrka_ctx_alloc(NULL, NULL);
+	VERIFY(ctx != NULL);
+
+	VERIFY(ctx->flags & KYRKA_FLAG_P2P_ACTIVE);
+
+	ret = kyrka_p2p_active(NULL, 1);
+	VERIFY(ret == -1);
+
+	ret = kyrka_p2p_active(ctx, 2);
+	VERIFY(ret == -1);
+	VERIFY(kyrka_last_error(ctx) == KYRKA_ERROR_PARAMETER);
+
+	ret = kyrka_p2p_active(ctx, 0);
+	VERIFY(ret == 0);
+	VERIFY(!(ctx->flags & KYRKA_FLAG_P2P_ACTIVE));
+
+	ret = kyrka_p2p_active(ctx, 1);
+	VERIFY(ret == 0);
+	VERIFY(ctx->flags & KYRKA_FLAG_P2P_ACTIVE);
+}
+
+static void
+api_kyrka_shroud_enable(void)
+{
+	int		ret;
+	struct kyrka	*ctx;
+
+	ctx = kyrka_ctx_alloc(NULL, NULL);
+	VERIFY(ctx != NULL);
+
+	VERIFY(!(ctx->flags & KYRKA_FLAG_USE_SHROUD));
+
+	ret = kyrka_shroud_enable(NULL);
+	VERIFY(ret == -1);
+
+	ret = kyrka_shroud_enable(ctx);
+	VERIFY(ret == 0);
+	VERIFY(ctx->flags & KYRKA_FLAG_USE_SHROUD);
+}
+
+static void
+api_kyrka_peer_timeout(void)
+{
+	int		ret;
+	struct kyrka	*ctx;
+
+	ctx = kyrka_ctx_alloc(NULL, NULL);
+	VERIFY(ctx != NULL);
+
+	ret = kyrka_peer_timeout(NULL);
+	VERIFY(ret == -1);
+
+	ctx->tx.cipher = kyrka_cipher_setup(ctx->mask, sizeof(ctx->mask));
+	VERIFY(ctx->tx.cipher != NULL);
+	ctx->rx.cipher = kyrka_cipher_setup(ctx->mask, sizeof(ctx->mask));
+	VERIFY(ctx->rx.cipher != NULL);
+	ctx->tx.spi = 0x1234;
+	ctx->rx.spi = 0x5678;
+
+	ret = kyrka_peer_timeout(ctx);
+	VERIFY(ret == 0);
+
+	VERIFY(ctx->tx.cipher == NULL);
+	VERIFY(ctx->rx.cipher == NULL);
+	VERIFY(ctx->tx.spi == 0);
+	VERIFY(ctx->rx.spi == 0);
+}
+
+static void
+api_kyrka_key_material_copy(void)
+{
+	int		ret;
+	struct kyrka	*src, *dst;
+	u_int8_t	kek[KYRKA_KEY_LENGTH];
+	u_int8_t	secret[KYRKA_KEY_LENGTH];
+	u_int8_t	expected[KYRKA_KEY_LENGTH];
+	u_int8_t	cathedral_secret[KYRKA_KEY_LENGTH];
+
+	src = kyrka_ctx_alloc(NULL, NULL);
+	VERIFY(src != NULL);
+	dst = kyrka_ctx_alloc(NULL, NULL);
+	VERIFY(dst != NULL);
+
+	ret = kyrka_key_material_copy(NULL, NULL);
+	VERIFY(ret == -1);
+
+	ret = kyrka_key_material_copy(dst, NULL);
+	VERIFY(ret == -1);
+	VERIFY(kyrka_last_error(dst) == KYRKA_ERROR_PARAMETER);
+
+	ret = kyrka_key_material_copy(dst, src);
+	VERIFY(ret == 0);
+	VERIFY(!(dst->flags & KYRKA_FLAG_SECRET_SET));
+	VERIFY(!(dst->flags & KYRKA_FLAG_DEVICE_KEK));
+	VERIFY(!(dst->flags & KYRKA_FLAG_CATHEDRAL_SECRET));
+
+	memset(secret, 0x11, sizeof(secret));
+	memset(kek, 0x22, sizeof(kek));
+	memset(cathedral_secret, 0x33, sizeof(cathedral_secret));
+
+	VERIFY(kyrka_secret_load(src, secret, sizeof(secret)) == 0);
+	VERIFY(kyrka_device_kek_load(src, kek, sizeof(kek)) == 0);
+	VERIFY(kyrka_cathedral_secret_load(src, cathedral_secret,
+	    sizeof(cathedral_secret)) == 0);
+
+	ret = kyrka_key_material_copy(dst, src);
+	VERIFY(ret == 0);
+
+	VERIFY(dst->flags & KYRKA_FLAG_SECRET_SET);
+	VERIFY(dst->flags & KYRKA_FLAG_DEVICE_KEK);
+	VERIFY(dst->flags & KYRKA_FLAG_CATHEDRAL_SECRET);
+
+	memcpy(expected, secret, sizeof(expected));
+	kyrka_mask(dst, dst->cfg.secret, sizeof(dst->cfg.secret));
+	VERIFY(memcmp(dst->cfg.secret, expected, sizeof(expected)) == 0);
+
+	memcpy(expected, kek, sizeof(expected));
+	kyrka_mask(dst, dst->cfg.kek, sizeof(dst->cfg.kek));
+	VERIFY(memcmp(dst->cfg.kek, expected, sizeof(expected)) == 0);
+
+	memcpy(expected, cathedral_secret, sizeof(expected));
+	kyrka_mask(dst, dst->cathedral.secret, sizeof(dst->cathedral.secret));
+	VERIFY(memcmp(dst->cathedral.secret, expected, sizeof(expected)) == 0);
 }
 
 static void
 api_kyrka_heaven_ifc(void)
 {
-	int			ret;
-	struct kyrka		*ctx;
-	u_int8_t		*ptr;
+	int		ret;
+	u_int8_t	*ptr;
+	struct kyrka	*ctx;
 
 	ptr = NULL;
 
@@ -294,9 +471,9 @@ api_kyrka_heaven_ifc(void)
 static void
 api_kyrka_purgatory_ifc(void)
 {
-	int			ret;
-	struct kyrka		*ctx;
-	u_int8_t		*ptr;
+	int		ret;
+	u_int8_t	*ptr;
+	struct kyrka	*ctx;
 
 	ptr = NULL;
 
@@ -330,27 +507,30 @@ api_kyrka_heaven_input(void)
 {
 	int			ret;
 	struct kyrka		*ctx;
-	u_int8_t		data[256];
+	struct kyrka_packet	pkt;
 
 	ctx = kyrka_ctx_alloc(NULL, NULL);
 	VERIFY(ctx != NULL);
 
-	ret = kyrka_heaven_input(NULL, NULL, 0);
+	ret = kyrka_heaven_input(NULL, NULL);
 	VERIFY(ret == -1);
 
-	ret = kyrka_heaven_input(ctx, NULL, 0);
-	VERIFY(ret == -1);
-	VERIFY(kyrka_last_error(ctx) == KYRKA_ERROR_PARAMETER);
-
-	ret = kyrka_heaven_input(ctx, data, 0);
+	ret = kyrka_heaven_input(ctx, NULL);
 	VERIFY(ret == -1);
 	VERIFY(kyrka_last_error(ctx) == KYRKA_ERROR_PARAMETER);
 
-	ret = kyrka_heaven_input(ctx, data, UINT_MAX);
+	pkt.length = 0;
+	ret = kyrka_heaven_input(ctx, &pkt);
 	VERIFY(ret == -1);
 	VERIFY(kyrka_last_error(ctx) == KYRKA_ERROR_PARAMETER);
 
-	ret = kyrka_heaven_input(ctx, data, sizeof(data));
+	pkt.length = KYRKA_PACKET_DATA_LEN + 1;
+	ret = kyrka_heaven_input(ctx, &pkt);
+	VERIFY(ret == -1);
+	VERIFY(kyrka_last_error(ctx) == KYRKA_ERROR_PARAMETER);
+
+	pkt.length = 256;
+	ret = kyrka_heaven_input(ctx, &pkt);
 	VERIFY(ret == -1);
 	VERIFY(kyrka_last_error(ctx) == KYRKA_ERROR_NO_CALLBACK);
 
@@ -358,7 +538,8 @@ api_kyrka_heaven_input(void)
 	ret = kyrka_purgatory_ifc(ctx, api_generic_callback, NULL);
 	VERIFY(ret == 0);
 
-	ret = kyrka_heaven_input(ctx, data, sizeof(data));
+	pkt.length = 256;
+	ret = kyrka_heaven_input(ctx, &pkt);
 	VERIFY(ret == -1);
 	VERIFY(kyrka_last_error(ctx) == KYRKA_ERROR_NO_TX_KEY);
 }
@@ -368,23 +549,25 @@ api_kyrka_purgatory_input(void)
 {
 	int			ret;
 	struct kyrka		*ctx;
-	u_int8_t		data[256];
+	struct kyrka_packet	pkt;
 
 	ctx = kyrka_ctx_alloc(NULL, NULL);
 	VERIFY(ctx != NULL);
 
-	ret = kyrka_purgatory_input(NULL, NULL, 0);
+	ret = kyrka_purgatory_input(NULL, NULL);
 	VERIFY(ret == -1);
 
-	ret = kyrka_purgatory_input(ctx, NULL, 0);
-	VERIFY(ret == -1);
-	VERIFY(kyrka_last_error(ctx) == KYRKA_ERROR_PARAMETER);
-
-	ret = kyrka_purgatory_input(ctx, data, 0);
+	ret = kyrka_purgatory_input(ctx, NULL);
 	VERIFY(ret == -1);
 	VERIFY(kyrka_last_error(ctx) == KYRKA_ERROR_PARAMETER);
 
-	ret = kyrka_purgatory_input(ctx, data, UINT_MAX);
+	pkt.length = 0;
+	ret = kyrka_purgatory_input(ctx, &pkt);
+	VERIFY(ret == -1);
+	VERIFY(kyrka_last_error(ctx) == KYRKA_ERROR_PARAMETER);
+
+	pkt.length = KYRKA_PACKET_DATA_LEN + 1;
+	ret = kyrka_purgatory_input(ctx, &pkt);
 	VERIFY(ret == -1);
 	VERIFY(kyrka_last_error(ctx) == KYRKA_ERROR_PARAMETER);
 
@@ -411,9 +594,19 @@ test_entry(void)
 
 	test_framework_register("kyrka_device_kek_load",
 	    api_kyrka_device_kek_load);
+	test_framework_register("kyrka_cathedral_cosk_load",
+	    api_kyrka_cathedral_cosk_load);
 
-	test_framework_register("kyrka_encap_key_load",
-	    api_kyrka_encap_key_load);
+	test_framework_register("kyrka_version", api_kyrka_version);
+	test_framework_register("kyrka_last_error_no_context",
+	    api_kyrka_last_error_no_context);
+
+	test_framework_register("kyrka_mtu_size", api_kyrka_mtu_size);
+	test_framework_register("kyrka_p2p_active", api_kyrka_p2p_active);
+	test_framework_register("kyrka_shroud_enable", api_kyrka_shroud_enable);
+	test_framework_register("kyrka_peer_timeout", api_kyrka_peer_timeout);
+	test_framework_register("kyrka_key_material_copy",
+	    api_kyrka_key_material_copy);
 
 	test_framework_register("kyrka_heaven_ifc", api_kyrka_heaven_ifc);
 	test_framework_register("kyrka_heaven_input", api_kyrka_heaven_input);

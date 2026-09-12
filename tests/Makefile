@@ -16,17 +16,37 @@ CFLAGS+=-g
 SRC=	framework.c
 
 TESTS=	$(OBJDIR)/test-api \
-	$(OBJDIR)/test-vicar
+	$(OBJDIR)/test-vicar \
+	$(OBJDIR)/test-packet \
+	$(OBJDIR)/test-kdf \
+	$(OBJDIR)/test-offer \
+	$(OBJDIR)/test-shroud \
+	$(OBJDIR)/test-cathedral \
+	$(OBJDIR)/test-key \
+	$(OBJDIR)/test-cipher \
+	$(OBJDIR)/test-asymmetry \
+	$(OBJDIR)/test-mlkem \
+	$(OBJDIR)/test-purgatory \
+	$(OBJDIR)/test-heaven
 OBJS=	$(SRC:%.c=$(OBJDIR)/%.o)
 
 # XXX ideally should be tied to the mk stuff in libkyrka
 # so tests can be run with all type of builds.
-LDFLAGS+=	$(LIBKYRKA)/lib/libkyrka.a $(LIB) -lsodium
+CFLAGS+=	$(shell pkg-config libsodium --cflags)
+LDFLAGS+=	$(LIBKYRKA)/lib/libkyrka.a $(LIB)
+LDFLAGS+=	$(shell pkg-config libsodium --libs)
 
 # XXX library build should be done with sanitizers.
 LDFLAGS+=	-fsanitize=address,undefined -fprofile-arcs
 
-all: $(TESTS)
+all: test
+
+test: $(TESTS)
+	@status=0; \
+	for t in $(TESTS); do \
+		./$$t || status=1; \
+	done; \
+	exit $$status
 
 $(LIB): $(OBJS) $(OBJDIR)
 	$(AR) rcs $(LIB) $(OBJS)
@@ -47,8 +67,7 @@ coverage_html: coverage.info
 	genhtml -o coverage_html coverage.info
 
 coverage.info: $(TESTS)
-	$(OBJDIR)/test-api
-	$(OBJDIR)/test-vicar
+	for t in $(TESTS); do ./$$t; done
 	lcov -d ../obj-host -c -o coverage.info
 
 clean:
@@ -56,4 +75,4 @@ clean:
 	rm -rf $(OBJDIR)
 	rm -rf coverage*
 
-.PHONY: all clean
+.PHONY: all clean test
