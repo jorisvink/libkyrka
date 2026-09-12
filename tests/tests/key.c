@@ -167,6 +167,7 @@ key_exchange_full_handshake_test(void)
 	VERIFY(a->tx.cipher != NULL);
 
 	VERIFY(b->tx.cipher == NULL);
+	sleep(1);
 
 	VERIFY(kyrka_key_manage(a) == 0);
 	VERIFY(b->tx.cipher != NULL);
