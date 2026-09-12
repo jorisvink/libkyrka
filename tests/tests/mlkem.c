@@ -25,8 +25,8 @@
 static void
 mlkem_roundtrip_test(void)
 {
-	u_int8_t		zero[KYRKA_KEY_LENGTH];
-	struct kyrka_mlkem1024	peer, local;
+	struct kyrka_mlkem1024		peer, local;
+	u_int8_t			zero[KYRKA_KEY_LENGTH];
 
 	kyrka_random_init();
 	memset(zero, 0, sizeof(zero));
@@ -51,7 +51,7 @@ mlkem_roundtrip_test(void)
 static void
 mlkem_wrong_ciphertext_test(void)
 {
-	struct kyrka_mlkem1024	peer, local, other;
+	struct kyrka_mlkem1024		peer, local, other;
 
 	kyrka_random_init();
 	memset(&peer, 0, sizeof(peer));
