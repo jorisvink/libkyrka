@@ -30,6 +30,12 @@ TESTS=	$(OBJDIR)/test-api \
 	$(OBJDIR)/test-heaven
 OBJS=	$(SRC:%.c=$(OBJDIR)/%.o)
 
+OSNAME=$(shell uname -s | sed -e 's/[-_].*//g' | tr A-Z a-z)
+
+ifeq ("$(OSNAME)", "linux")
+	CFLAGS+=-D_GNU_SOURCE=1 -U_FORTIFY_SOURCE -D_FORTIFY_SOURCE=2
+endif
+
 # XXX ideally should be tied to the mk stuff in libkyrka
 # so tests can be run with all type of builds.
 CFLAGS+=	$(shell pkg-config libsodium --cflags)

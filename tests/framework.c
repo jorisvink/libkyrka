@@ -151,8 +151,8 @@ test_framework_run(void)
 			    fail, reset, test->name,
 			    WEXITSTATUS(test->status));
 		} else if (WIFSIGNALED(test->status)) {
-			printf("  %s[FAIL]%s %s (%s)\n", fail, reset,
-			    test->name, strsignal(WTERMSIG(test->status)));
+			printf("  %s[FAIL]%s %s (%d)\n", fail, reset,
+			    test->name, WTERMSIG(test->status));
 		} else {
 			printf("  %s[FAIL]%s %s (status 0x%x)\n",
 			    fail, reset, test->name, test->status);
