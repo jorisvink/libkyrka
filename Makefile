@@ -141,19 +141,20 @@ $(OBJDIR)/python/libkyrka.so: $(LIB) $(OBJDIR)/python.o
 	$(CC) $(SHARED_FLAGS) $(OBJDIR)/python.o $(LIB) $(LDFLAGS) -o $@
 
 $(PC): pkgconfig/libkyrka.pc
-	sed 's/%%EXTRA_LIBS%%/$(EXTRA_LIBS)/' $< > $@
+	sed 's,%%PREFIX%%,$(PREFIX),' $< | \
+	    sed 's/%%EXTRA_LIBS%%/$(EXTRA_LIBS)/' > $@
 
 install:
 	$(MAKE)
-	mkdir -p $(DESTDIR)$(LIB_DIR)
-	mkdir -p $(DESTDIR)$(PKG_DIR)
-	mkdir -p $(DESTDIR)$(INCLUDE_DIR)
-	install -m 555 $(LIB) $(DESTDIR)$(LIB_DIR)/$(BIN)
-	install -m 644 $(PC) $(DESTDIR)/$(PKG_DIR)
-	install -m 644 include/libkyrka/* $(DESTDIR)$(INCLUDE_DIR)
-	install -m 644 nyfe/include/libnyfe.h $(DESTDIR)$(INCLUDE_DIR)
-	install -m 644 nyfe/include/portable_win.h $(DESTDIR)$(INCLUDE_DIR)
-	install -m 644 nyfe/include/portable_esp32.h $(DESTDIR)$(INCLUDE_DIR)
+	mkdir -p $(LIB_DIR)
+	mkdir -p $(PKG_DIR)
+	mkdir -p $(INCLUDE_DIR)
+	install -m 555 $(LIB) $(LIB_DIR)/$(BIN)
+	install -m 644 $(PC) $(PKG_DIR)
+	install -m 644 include/libkyrka/* $(INCLUDE_DIR)
+	install -m 644 nyfe/include/libnyfe.h $(INCLUDE_DIR)
+	install -m 644 nyfe/include/portable_win.h $(INCLUDE_DIR)
+	install -m 644 nyfe/include/portable_esp32.h $(INCLUDE_DIR)
 	@if [ ! -z "$(CROSS_BUILD)" ]; then \
 		rm -f $(LIB); \
 	fi
