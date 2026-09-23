@@ -1,7 +1,7 @@
 # libkyrka tests Makefile
 
 CC?=cc
-LIBKYRKA?=../host-build
+LIBKYRKA?=../host-build/usr/local/
 
 OBJDIR?=obj
 LIB=$(OBJDIR)/libtest.a
