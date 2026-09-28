@@ -1,6 +1,6 @@
 # Kyrka
 
-libkyrka implements the <a href="https://sanctorum.se/sanctum">sanctum</a>
+libkyrka implements the <a href="https://sanctorum.se">sanctum</a>
 protocol in library form allowing you to establish p2p e2ee sanctum tunnels
 directly from your application.
 
