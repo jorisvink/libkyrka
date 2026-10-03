@@ -40,6 +40,8 @@ kyrka_offer_init(struct kyrka_packet *pkt, u_int32_t spi,
 	    type == KYRKA_OFFER_TYPE_LITURGY ||
 	    type == KYRKA_OFFER_TYPE_EXCHANGE);
 
+	nyfe_mem_zero(pkt, sizeof(*pkt));
+
 	pkt->length = sizeof(*op);
 	op = kyrka_packet_head(pkt);
 
