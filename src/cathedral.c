@@ -219,6 +219,11 @@ kyrka_cathedral_liturgy(struct kyrka *ctx, u_int8_t *peers, size_t len)
 		return (-1);
 	}
 
+	if (!(ctx->flags & KYRKA_FLAG_CATHEDRAL_SIGNING_KEY)) {
+		ctx->last_error = KYRKA_ERROR_NO_COSK;
+		return (-1);
+	}
+
 	if (peers != NULL) {
 		nyfe_memcpy(ctx->cathedral.peers,
 		    peers, sizeof(ctx->cathedral.peers));
