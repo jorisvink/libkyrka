@@ -7,7 +7,6 @@ CC=xtensa-esp32s3-elf-gcc
 
 DESTDIR=esp32s3 \
     OSNAME=esp32 \
-    PREFIX= \
     CROSS_BUILD=1 \
     OBJDIR=obj-esp32s3 \
     CC=$CC \

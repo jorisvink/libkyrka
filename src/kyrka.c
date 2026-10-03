@@ -552,7 +552,7 @@ kyrka_fatal(const char *fmt, va_list args)
 
 	kyrka_emergency_erase();
 
-	if (fatal_callback != NULL) {
+	if (fatal_callback == NULL) {
 		fprintf(stderr, "libkyrka error: ");
 		vfprintf(stderr, fmt, args);
 		fprintf(stderr, "\n");

@@ -67,7 +67,22 @@ kyrka_cathedral_config(struct kyrka *ctx, struct kyrka_cathedral_cfg *cfg)
 		return (-1);
 	}
 
+	if (cfg->hops > KYRKA_CATHEDRAL_HOPS) {
+		ctx->last_error = KYRKA_ERROR_PARAMETER;
+		return (-1);
+	}
+
+	if (cfg->hops != 0) {
+		if (!(ctx->flags & KYRKA_FLAG_USE_SHROUD)) {
+			ctx->last_error = KYRKA_ERROR_PARAMETER;
+			return (-1);
+		}
+
+		ctx->flags |= KYRKA_FLAG_USE_COMMIXTION;
+	}
+
 	ctx->cfg.spi = cfg->tunnel;
+	ctx->cathedral.hops = cfg->hops;
 	ctx->cathedral.group = cfg->group;
 	ctx->cathedral.ifc.send = cfg->send;
 	ctx->cathedral.hidden = cfg->hidden;
@@ -201,6 +216,11 @@ kyrka_cathedral_liturgy(struct kyrka *ctx, u_int8_t *peers, size_t len)
 
 	if (!(ctx->flags & KYRKA_FLAG_CATHEDRAL_SECRET)) {
 		ctx->last_error = KYRKA_ERROR_NO_SECRET;
+		return (-1);
+	}
+
+	if (!(ctx->flags & KYRKA_FLAG_CATHEDRAL_SIGNING_KEY)) {
+		ctx->last_error = KYRKA_ERROR_NO_COSK;
 		return (-1);
 	}
 
@@ -365,7 +385,10 @@ cathedral_send_offer(struct kyrka *ctx, u_int64_t magic)
 		info->rx_pending = ctx->rx.spi;
 
 		if (ctx->cathedral.remembrance)
-			info->flags = KYRKA_INFO_FLAG_REMEMBRANCE;
+			info->flags |= KYRKA_INFO_FLAG_REMEMBRANCE;
+
+		if (!(ctx->flags & KYRKA_FLAG_DEVICE_KEK))
+			info->flags |= KYRKA_INFO_FLAG_SKIP_AMBRY;
 	} else {
 		op->hdr.flock_dst = 0;
 

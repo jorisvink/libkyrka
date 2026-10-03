@@ -6,7 +6,6 @@ CC="xcrun -sdk iphoneos clang -arch arm64"
 
 DESTDIR=ios-arm64 \
     OSNAME=ios \
-    PREFIX= \
     CROSS_BUILD=1 \
     OBJDIR=obj-iosarm64 \
     CC=$CC \

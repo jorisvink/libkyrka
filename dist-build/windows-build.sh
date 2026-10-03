@@ -6,7 +6,6 @@
 # Note that the toolchain must have libsodium available somewhere.
 
 DESTDIR=x86_64-w64-mingw32.static-gcc \
-    PREFIX= \
     CROSS_BUILD=1 \
     KYRKA_NO_INRI_API=1 \
     OBJDIR=obj-windows \

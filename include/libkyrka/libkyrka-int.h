@@ -355,6 +355,9 @@ struct kyrka_remembrance_offer {
 /* Set in the info offer if we want remembrances back. */
 #define KYRKA_INFO_FLAG_REMEMBRANCE	(1 << 0)
 
+/* Set in the info offer if we do not cathedral to send us ambries. */
+#define KYRKA_INFO_FLAG_SKIP_AMBRY	(1 << 1)
+
 struct kyrka_info_offer {
 	u_int32_t		flags;
 
@@ -483,9 +486,15 @@ struct kyrka_kex {
 /* Is our tunnel running in a p2p fashion or not? */
 #define KYRKA_FLAG_P2P_ACTIVE			(1 << 8)
 
+/* Are we using commixtion or not. */
+#define KYRKA_FLAG_USE_COMMIXTION		(1 << 9)
+
 /* Explicit flags for shroud */
 #define KYRKA_SHROUD_PEER_KEY			(1 << 0)
 #define KYRKA_SHROUD_CATHEDRAL_KEY		(1 << 1)
+
+/* The maximum number of hops commixtion can ask for. */
+#define KYRKA_CATHEDRAL_HOPS			3
 
 /* XXX */
 union kyrka_event;
@@ -564,8 +573,10 @@ struct kyrka {
 		struct kyrka_ifc	ifc;
 		u_int32_t		ambry;
 		u_int64_t		ambry_recv;
+		int			ambry_skip;
 		int			ambry_switch;
 
+		u_int8_t		hops;
 		u_int32_t		identity;
 		u_int64_t		flock_src;
 		u_int64_t		flock_dst;

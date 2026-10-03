@@ -157,6 +157,12 @@ kyrka_heaven_input(struct kyrka *ctx, struct kyrka_packet *pkt)
 
 	pkt->length += sizeof(*hdr) + KYRKA_TAG_LENGTH;
 
+	if (ctx->flags & KYRKA_FLAG_USE_COMMIXTION) {
+		hdr->pn = be64toh(hdr->pn);
+		hdr->pn |= (u_int64_t)ctx->cathedral.hops << 56;
+		hdr->pn = htobe64(hdr->pn);
+	}
+
 	if (ctx->flags & KYRKA_FLAG_USE_SHROUD) {
 		if (kyrka_shroud_packet(ctx, pkt) == -1)
 			return (-1);

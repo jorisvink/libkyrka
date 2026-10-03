@@ -17,8 +17,10 @@
 #include <sys/types.h>
 
 #include <err.h>
+#include <errno.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
 #include <unistd.h>
 
 #include "framework.h"
@@ -68,6 +70,78 @@ vicar_load_test(void)
 }
 
 static void
+vicar_load_fields_test(void)
+{
+	int				ret;
+	KYRKA				*base;
+	struct kyrka_cathedral_cfg	cfg;
+
+	base = kyrka_ctx_alloc(NULL, NULL);
+	VERIFY(base != NULL);
+
+	ret = kyrka_vicar_load(base, "test-data/vicar.cfg", "lol", &cfg);
+	VERIFY(ret == 0);
+
+	VERIFY(cfg.identity == 0x0a0b0c0d);
+	VERIFY(cfg.tunnel == 0x1234);
+	VERIFY(cfg.flock_src == 16045690984503098046ULL);
+
+	VERIFY(base->flags & KYRKA_FLAG_CATHEDRAL_SECRET);
+	VERIFY(base->flags & KYRKA_FLAG_CATHEDRAL_SIGNING_KEY);
+	VERIFY(base->flags & KYRKA_FLAG_DEVICE_KEK);
+}
+
+static void
+vicar_load_wrong_passphrase_test(void)
+{
+	int				ret;
+	KYRKA				*base;
+	struct kyrka_cathedral_cfg	cfg;
+
+	base = kyrka_ctx_alloc(NULL, NULL);
+	VERIFY(base != NULL);
+
+	ret = kyrka_vicar_load(base, "test-data/vicar.cfg", "wrong", &cfg);
+	VERIFY(ret == -1);
+	VERIFY(kyrka_last_error(base) == KYRKA_ERROR_INTEGRITY);
+}
+
+static void
+vicar_load_passphrase_too_long_test(void)
+{
+	int				ret;
+	KYRKA				*base;
+	char				passphrase[257];
+	struct kyrka_cathedral_cfg	cfg;
+
+	base = kyrka_ctx_alloc(NULL, NULL);
+	VERIFY(base != NULL);
+
+	memset(passphrase, 'a', sizeof(passphrase) - 1);
+	passphrase[sizeof(passphrase) - 1] = '\0';
+
+	ret = kyrka_vicar_load(base, "test-data/vicar.cfg", passphrase, &cfg);
+	VERIFY(ret == -1);
+	VERIFY(kyrka_last_error(base) == KYRKA_ERROR_PARAMETER);
+}
+
+static void
+vicar_load_missing_file_test(void)
+{
+	int				ret;
+	KYRKA				*base;
+	struct kyrka_cathedral_cfg	cfg;
+
+	base = kyrka_ctx_alloc(NULL, NULL);
+	VERIFY(base != NULL);
+
+	ret = kyrka_vicar_load(base, "test-data/does_not_exist", "lol", &cfg);
+	VERIFY(ret == -1);
+	VERIFY(kyrka_last_error(base) == KYRKA_ERROR_SYSTEM);
+	VERIFY(errno == ENOENT);
+}
+
+static void
 context_copy_test(void)
 {
 	int				ret;
@@ -113,6 +187,14 @@ void
 test_entry(void)
 {
 	test_framework_register("vicar_load_test", vicar_load_test);
+	test_framework_register("vicar_load_fields_test",
+	    vicar_load_fields_test);
+	test_framework_register("vicar_load_wrong_passphrase_test",
+	    vicar_load_wrong_passphrase_test);
+	test_framework_register("vicar_load_passphrase_too_long_test",
+	    vicar_load_passphrase_too_long_test);
+	test_framework_register("vicar_load_missing_file_test",
+	    vicar_load_missing_file_test);
 	test_framework_register("context_copy_test", context_copy_test);
 
 	test_framework_run();
