@@ -443,15 +443,11 @@ key_offer_send_fragment(struct kyrka *ctx, int which, u_int8_t frag)
  *
  *	When a side performs encapsulation it will derive a fresh
  *	RX session key using all of that key material and install the
- *	key as a pending RX key.
+ *	key as the RX key.
  *
  *	When a side performs decapsulation it will derive a fresh
  *	TX session key using all of that key material and install the
  *	key as the active TX key.
- *
- * In both cases this results in unique shared secrets for x25519
- * and ML-KEM-1024 in each direction, while allowing us to gracefully
- * install pending RX keys so that we do not miss a beat.
  */
 static void
 key_exchange(struct kyrka *ctx, struct kyrka_offer *op)
