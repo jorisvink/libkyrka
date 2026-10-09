@@ -252,6 +252,7 @@ PyInit_libkyrka(void)
 		return (NULL);
 	}
 
+	PyType_Ready(&pykyrka_type);
 	kyrka_fatal_callback(python_fatal);
 
 	return (mod);
@@ -1020,7 +1021,6 @@ python_callback_run(struct pykyrka *ctx, struct callback *cb,
 	PRECOND(ctx != NULL);
 	PRECOND(cb != NULL);
 	PRECOND(data != NULL);
-	PRECOND(len > 0);
 
 	if (cb->cb == NULL)
 		return;

@@ -299,6 +299,9 @@ kyrka_shroud_enable(KYRKA *ctx)
  *
  * If you get this wrong, at worst the receiving party will not be able
  * to unshroud the packet, but no meta-data is leaked.
+ *
+ * Do not use this function if you are using commixtion as commixtion
+ * requires your packet to travel *through* the cathedrals.
  */
 int
 kyrka_p2p_active(KYRKA *ctx, int active)
