@@ -561,6 +561,7 @@ cathedral_ambry_recv(struct kyrka *ctx, struct kyrka_offer *op)
 	}
 
 	cathedral_ambry_unwrap(ctx, &data->offer.ambry);
+	nyfe_mem_zero(&data->offer.ambry, sizeof(data->offer.ambry));
 }
 
 /*
