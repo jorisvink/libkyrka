@@ -579,10 +579,10 @@ key_exchange_decapsulate(struct kyrka *ctx, struct kyrka_offer *op, time_t now)
 	if (!(ctx->offer.flags & KYRKA_OFFER_INCLUDE_KEM_PK))
 		return;
 
-	if (ctx->offer.ct_frag & (1 << xchg->fragment))
+	if (xchg->fragment >= KYRKA_OFFER_KEM_FRAGMENTS)
 		return;
 
-	if (xchg->fragment >= KYRKA_OFFER_KEM_FRAGMENTS)
+	if (ctx->offer.ct_frag & (1 << xchg->fragment))
 		return;
 
 	off = xchg->fragment * KYRKA_OFFER_KEM_FRAGMENT_SIZE;
