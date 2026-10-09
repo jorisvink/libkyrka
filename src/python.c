@@ -730,7 +730,7 @@ pykyrka_device_kek_load(PyObject *self, PyObject *args)
 static PyObject *
 pykyrka_p2p_active(PyObject *self, PyObject *args)
 {
-	int			val;
+	u_int8_t		val;
 	struct pykyrka		*ctx;
 
 	PRECOND(self != NULL);
