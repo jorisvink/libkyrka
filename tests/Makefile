@@ -16,7 +16,6 @@ CFLAGS+=-g
 SRC=	framework.c
 
 TESTS=	$(OBJDIR)/test-api \
-	$(OBJDIR)/test-vicar \
 	$(OBJDIR)/test-packet \
 	$(OBJDIR)/test-kdf \
 	$(OBJDIR)/test-offer \

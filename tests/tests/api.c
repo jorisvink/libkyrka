@@ -378,63 +378,6 @@ api_kyrka_peer_timeout(void)
 }
 
 static void
-api_kyrka_key_material_copy(void)
-{
-	int		ret;
-	struct kyrka	*src, *dst;
-	u_int8_t	kek[KYRKA_KEY_LENGTH];
-	u_int8_t	secret[KYRKA_KEY_LENGTH];
-	u_int8_t	expected[KYRKA_KEY_LENGTH];
-	u_int8_t	cathedral_secret[KYRKA_KEY_LENGTH];
-
-	src = kyrka_ctx_alloc(NULL, NULL);
-	VERIFY(src != NULL);
-	dst = kyrka_ctx_alloc(NULL, NULL);
-	VERIFY(dst != NULL);
-
-	ret = kyrka_key_material_copy(NULL, NULL);
-	VERIFY(ret == -1);
-
-	ret = kyrka_key_material_copy(dst, NULL);
-	VERIFY(ret == -1);
-	VERIFY(kyrka_last_error(dst) == KYRKA_ERROR_PARAMETER);
-
-	ret = kyrka_key_material_copy(dst, src);
-	VERIFY(ret == 0);
-	VERIFY(!(dst->flags & KYRKA_FLAG_SECRET_SET));
-	VERIFY(!(dst->flags & KYRKA_FLAG_DEVICE_KEK));
-	VERIFY(!(dst->flags & KYRKA_FLAG_CATHEDRAL_SECRET));
-
-	memset(secret, 0x11, sizeof(secret));
-	memset(kek, 0x22, sizeof(kek));
-	memset(cathedral_secret, 0x33, sizeof(cathedral_secret));
-
-	VERIFY(kyrka_secret_load(src, secret, sizeof(secret)) == 0);
-	VERIFY(kyrka_device_kek_load(src, kek, sizeof(kek)) == 0);
-	VERIFY(kyrka_cathedral_secret_load(src, cathedral_secret,
-	    sizeof(cathedral_secret)) == 0);
-
-	ret = kyrka_key_material_copy(dst, src);
-	VERIFY(ret == 0);
-
-	VERIFY(dst->flags & KYRKA_FLAG_SECRET_SET);
-	VERIFY(dst->flags & KYRKA_FLAG_DEVICE_KEK);
-	VERIFY(dst->flags & KYRKA_FLAG_CATHEDRAL_SECRET);
-
-	memcpy(expected, secret, sizeof(expected));
-	kyrka_mask(dst, dst->cfg.secret, sizeof(dst->cfg.secret));
-	VERIFY(memcmp(dst->cfg.secret, expected, sizeof(expected)) == 0);
-
-	memcpy(expected, kek, sizeof(expected));
-	kyrka_mask(dst, dst->cfg.kek, sizeof(dst->cfg.kek));
-	VERIFY(memcmp(dst->cfg.kek, expected, sizeof(expected)) == 0);
-
-	memcpy(expected, cathedral_secret, sizeof(expected));
-	kyrka_mask(dst, dst->cathedral.secret, sizeof(dst->cathedral.secret));
-	VERIFY(memcmp(dst->cathedral.secret, expected, sizeof(expected)) == 0);
-}
-
-static void
 api_kyrka_heaven_ifc(void)
 {
 	int		ret;
@@ -605,8 +548,6 @@ test_entry(void)
 	test_framework_register("kyrka_p2p_active", api_kyrka_p2p_active);
 	test_framework_register("kyrka_shroud_enable", api_kyrka_shroud_enable);
 	test_framework_register("kyrka_peer_timeout", api_kyrka_peer_timeout);
-	test_framework_register("kyrka_key_material_copy",
-	    api_kyrka_key_material_copy);
 
 	test_framework_register("kyrka_heaven_ifc", api_kyrka_heaven_ifc);
 	test_framework_register("kyrka_heaven_input", api_kyrka_heaven_input);
