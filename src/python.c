@@ -1311,7 +1311,8 @@ python_kyrka_exception(u_int64_t error)
 	}
 
 	if (constants_errors[i].name == NULL) {
-		PyErr_Format(PyExc_RuntimeError, "error '%d' not found", error);
+		PyErr_Format(PyExc_RuntimeError,
+		    "error '%" PRIu64 "' not found", error);
 	} else {
 		PyErr_SetObject(PyExc_RuntimeError, constants_errors[i].obj);
 	}
