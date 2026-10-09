@@ -240,10 +240,6 @@ int	kyrka_cathedral_nat_detection(KYRKA *);
 int	kyrka_cathedral_liturgy(KYRKA *, u_int8_t *, size_t);
 int	kyrka_cathedral_config(KYRKA *, struct kyrka_cathedral_cfg *);
 
-int	kyrka_key_material_copy(KYRKA *, KYRKA *);
-int	kyrka_vicar_load(KYRKA *, const char *, const char *,
-	    struct kyrka_cathedral_cfg *);
-
 void	*kyrka_packet_data(struct kyrka_packet *);
 void	*kyrka_packet_recvbuf(struct kyrka *, struct kyrka_packet *, size_t *);
 void	*kyrka_packet_sendbuf(struct kyrka *, struct kyrka_packet *, size_t *);

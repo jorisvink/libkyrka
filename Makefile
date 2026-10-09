@@ -45,8 +45,7 @@ SRC=	src/kyrka.c \
 	src/offer.c \
 	src/shroud.c \
 	src/packet.c \
-	src/purgatory.c \
-	src/vicar.c
+	src/purgatory.c
 
 ifeq ("$(SANITIZE)", "1")
 	CFLAGS+=-fsanitize=address,undefined
