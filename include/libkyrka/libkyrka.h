@@ -245,52 +245,6 @@ void	*kyrka_packet_recvbuf(struct kyrka *, struct kyrka_packet *, size_t *);
 void	*kyrka_packet_sendbuf(struct kyrka *, struct kyrka_packet *, size_t *);
 void	*kyrka_packet_databuf(struct kyrka *, struct kyrka_packet *, size_t *);
 
-/*
- * The INRI api.
- */
-#if !defined(KYRKA_NO_INRI_API)
-
-/*
- * The different settings that can be configured onto the context.
- */
-#define KYRKA_INRI_CALLBACK_DATA		1
-#define KYRKA_INRI_CALLBACK_LOG			2
-#define KYRKA_INRI_CALLBACK_TUNNEL_STATE	3
-#define KYRKA_INRI_CALLBACK_UDATA		4
-
-#define KYRKA_INRI_CATHEDRAL_PORT		100
-#define KYRKA_INRI_CATHEDRAL_IP			101
-#define KYRKA_INRI_CATHEDRAL_TUNNEL		102
-#define KYRKA_INRI_CATHEDRAL_IDENTITY		103
-#define KYRKA_INRI_CATHEDRAL_FLOCK_SRC		104
-#define KYRKA_INRI_CATHEDRAL_FLOCK_DST		105
-#define KYRKA_INRI_CATHEDRAL_SECRET		106
-
-#define KYRKA_INRI_DEVICE_KEK			300
-#define KYRKA_INRI_DEVICE_COSK			301
-
-#define KYRKA_INRI_P2P_DISABLE			400
-#define KYRKA_INRI_INTERVAL			401
-
-/* The opaque KYRKA_INRI data structure for the api. */
-typedef struct kyrka_inri	KYRKA_INRI;
-
-/* The KYRKA_INRI api */
-KYRKA_INRI	*kyrka_inri_alloc(void);
-void		kyrka_inri_free(KYRKA_INRI *);
-u_int32_t	kyrka_inri_error(KYRKA_INRI *);
-KYRKA		*kyrka_inri_context(KYRKA_INRI *);
-
-int	kyrka_inri_fd(KYRKA_INRI *);
-int	kyrka_inri_run(KYRKA_INRI *);
-int	kyrka_inri_wait(KYRKA_INRI *);
-int	kyrka_inri_apply(KYRKA_INRI *);
-void	*kyrka_inri_udata(KYRKA_INRI *);
-int	kyrka_inri_set(KYRKA_INRI *, u_int64_t, ...);
-int	kyrka_inri_send(KYRKA_INRI *, const void *, size_t);
-
-#endif
-
 #if defined(__cplusplus)
 }
 #endif
