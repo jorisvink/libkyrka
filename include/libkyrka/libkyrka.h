@@ -86,11 +86,6 @@ extern "C" {
 #define KYRKA_EVENT_REMEMBRANCE_RECEIVED	7
 #define KYRKA_EVENT_LOGMSG			8
 
-struct kyrka_event_encap_info {
-	u_int32_t			type;
-	u_int32_t			spi;
-};
-
 struct kyrka_event_keys_info {
 	u_int32_t			type;
 	u_int32_t			tx_spi;
@@ -140,7 +135,6 @@ struct kyrka_event_remembrance {
 union kyrka_event {
 	u_int32_t				type;
 	struct kyrka_event_keys_info		keys;
-	struct kyrka_event_encap_info		encap;
 	struct kyrka_event_peer			peer;
 	struct kyrka_event_ambry		ambry;
 	struct kyrka_event_logmsg		logmsg;
@@ -225,7 +219,6 @@ int	kyrka_key_manage(KYRKA *);
 int	kyrka_mtu_size(KYRKA *, u_int16_t);
 int	kyrka_secret_load_path(KYRKA *, const char *);
 int	kyrka_secret_load(KYRKA *, const void *, size_t);
-int	kyrka_encap_key_load(KYRKA *, const void *, size_t);
 int	kyrka_device_kek_load(KYRKA *, const void *, size_t);
 int	kyrka_cathedral_cosk_load(KYRKA *, const void *, size_t);
 int	kyrka_cathedral_secret_load(KYRKA *, const void *, size_t);
