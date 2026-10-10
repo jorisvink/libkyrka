@@ -47,6 +47,9 @@ extern "C" {
 /* The libkyrka API version, bumped when we break / change stuff. */
 #define KYRKA_API_VERSION		3
 
+/* The minimum MTU size supported (keep this in sync with kyrka_offer{} */
+#define KYRKA_MTU_MINIMUM		623
+
 /*
  * Library error codes.
  */
