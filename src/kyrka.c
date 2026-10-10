@@ -345,6 +345,12 @@ void
 kyrka_ctx_free(struct kyrka *ctx)
 {
 	if (ctx != NULL) {
+		if (ctx->tx.cipher != NULL)
+			kyrka_cipher_cleanup(ctx->tx.cipher);
+
+		if (ctx->rx.cipher != NULL)
+			kyrka_cipher_cleanup(ctx->rx.cipher);
+
 		nyfe_zeroize(ctx, sizeof(*ctx));
 		free(ctx);
 	}
