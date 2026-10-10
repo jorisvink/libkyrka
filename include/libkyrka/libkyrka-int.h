@@ -554,6 +554,7 @@ struct kyrka {
 		int			force;
 		u_int32_t		flags;
 		u_int64_t		pulse;
+		u_int32_t		pk_spi;
 		u_int8_t		pk_frag;
 		u_int8_t		ct_frag;
 		u_int32_t		default_ttl;

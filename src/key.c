@@ -95,8 +95,10 @@ kyrka_key_manage(struct kyrka *ctx)
 		if (ctx->offer.local.spi == ctx->rx.spi && ctx->rx.pkt > 0) {
 			ctx->flags &= ~KYRKA_FLAG_AMBRY_NEGOTIATION;
 			ctx->offer.flags &= ~KYRKA_OFFER_INCLUDE_KEM_CT;
-			if (ctx->offer.flags == 0)
-				key_offer_clear(ctx);
+		}
+
+		if (ctx->offer.flags == 0) {
+			key_offer_clear(ctx);
 		} else if ((u_int64_t)ts.tv_sec >= ctx->offer.pulse) {
 			if (key_offer_send(ctx, ts.tv_sec) == -1)
 				return (-1);
@@ -312,6 +314,7 @@ static int
 key_offer_send(struct kyrka *ctx, u_int64_t now)
 {
 	u_int8_t	frag;
+	int		pending;
 
 	PRECOND(ctx != NULL);
 	PRECOND(ctx->purgatory.send != NULL);
@@ -336,9 +339,14 @@ key_offer_send(struct kyrka *ctx, u_int64_t now)
 	}
 
 	if (ctx->offer.ttl == 0) {
+		if (ctx->offer.flags & KYRKA_OFFER_INCLUDE_KEM_PK)
+			pending = 1;
+		else
+			pending = 0;
+
 		key_offer_clear(ctx);
 
-		if (ctx->cathedral.ambry_switch) {
+		if (pending || ctx->cathedral.ambry_switch) {
 			ctx->offer.force = 1;
 			ctx->offer.next = now + 10;
 		}
@@ -522,6 +530,12 @@ key_exchange_encapsulate(struct kyrka *ctx, struct kyrka_offer *op, time_t now)
 
 	if (xchg->fragment >= KYRKA_OFFER_KEM_FRAGMENTS)
 		return;
+
+	if (ctx->offer.pk_frag != 0 && xchg->spi != ctx->offer.pk_spi)
+		ctx->offer.pk_frag = 0;
+
+	if (ctx->offer.pk_frag == 0)
+		ctx->offer.pk_spi = xchg->spi;
 
 	if (ctx->offer.pk_frag & (1 << xchg->fragment))
 		return;

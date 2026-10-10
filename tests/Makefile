@@ -22,6 +22,7 @@ TESTS=	$(OBJDIR)/test-api \
 	$(OBJDIR)/test-shroud \
 	$(OBJDIR)/test-cathedral \
 	$(OBJDIR)/test-key \
+	$(OBJDIR)/test-exchange \
 	$(OBJDIR)/test-cipher \
 	$(OBJDIR)/test-asymmetry \
 	$(OBJDIR)/test-mlkem \
