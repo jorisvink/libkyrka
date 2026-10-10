@@ -194,7 +194,7 @@ kyrka_cathedral_nat_detection(struct kyrka *ctx)
  * to send it to the cathedral by whatever means.
  *
  * The given peers argument is either NULL to be interested in all
- * peers, or an array of 256 bytes indicating which peers one is
+ * peers, or an array of 255 bytes indicating which peers one is
  * interested in.
  */
 int
