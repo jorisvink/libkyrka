@@ -631,7 +631,9 @@ cathedral_ambry_unwrap(struct kyrka *ctx, struct kyrka_ambry_offer *ambry)
 		return;
 	}
 
+	kyrka_key_offer_reset(ctx);
 	ctx->flags |= KYRKA_FLAG_SECRET_SET;
+
 	if (ctx->cathedral.ambry != 0)
 		ctx->flags |= KYRKA_FLAG_AMBRY_NEGOTIATION;
 

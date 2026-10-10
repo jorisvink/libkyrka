@@ -79,8 +79,7 @@ kyrka_key_manage(struct kyrka *ctx)
 		kyrka_logmsg(ctx, "unable to renegotiate with peer "
 		    "75 seconds after ambry swap, clearing keys");
 
-		if (ctx->offer.local.spi != 0)
-			key_offer_clear(ctx);
+		kyrka_key_offer_reset(ctx);
 
 		if (ctx->rx.cipher != NULL)
 			kyrka_cipher_cleanup(ctx->rx.cipher);
@@ -252,6 +251,18 @@ key_offer_check(struct kyrka *ctx, u_int64_t now)
 	}
 
 	return (0);
+}
+
+/*
+ * Reset our current in-flight offer.
+ */
+void
+kyrka_key_offer_reset(struct kyrka *ctx)
+{
+	PRECOND(ctx != NULL);
+
+	if (ctx->offer.local.spi != 0)
+		key_offer_clear(ctx);
 }
 
 /*
@@ -487,8 +498,6 @@ key_exchange(struct kyrka *ctx, struct kyrka_offer *op)
 		kyrka_logmsg(ctx, "ignoring unknown offer packet");
 		break;
 	}
-
-	ctx->peer_id = exchange->id;
 }
 
 /*
@@ -553,7 +562,9 @@ key_exchange_encapsulate(struct kyrka *ctx, struct kyrka_offer *op, time_t now)
 	ctx->offer.ttl = ctx->offer.default_ttl;
 	ctx->offer.flags |= KYRKA_OFFER_INCLUDE_KEM_CT;
 
+	ctx->peer_id = xchg->id;
 	ctx->last_spi = xchg->spi;
+
 	kyrka_mlkem1024_encapsulate(&ctx->offer.remote.kem);
 	key_exchange_finalize(ctx, op, now, KYRKA_KEY_DIRECTION_RX);
 }
@@ -585,6 +596,9 @@ key_exchange_decapsulate(struct kyrka *ctx, struct kyrka_offer *op, time_t now)
 		kyrka_logmsg(ctx, "offer mismatching, trying re-sync");
 		return;
 	}
+
+	if (op->hdr.spi != ctx->offer.remote.spi)
+		return;
 
 	if (!(ctx->offer.flags & KYRKA_OFFER_INCLUDE_KEM_PK))
 		return;

@@ -673,6 +673,7 @@ void	*kyrka_packet_tail(struct kyrka_packet *);
 int	kyrka_packet_crypto_checklen(struct kyrka *, struct kyrka_packet *);
 
 /* src/key.c */
+void	kyrka_key_offer_reset(struct kyrka *);
 void	kyrka_key_offer_decrypt(struct kyrka *, struct kyrka_packet *);
 int	kyrka_key_load_from_path(struct kyrka *,
 	    const char *, u_int8_t *, size_t);
