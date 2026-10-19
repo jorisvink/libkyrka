@@ -587,6 +587,9 @@ key_exchange_decapsulate(struct kyrka *ctx, struct kyrka_offer *op, time_t now)
 	if (ctx->offer.local.spi == 0 || ctx->offer.remote.spi == 0)
 		return;
 
+	if (op->hdr.spi != ctx->offer.remote.spi)
+		return;
+
 	xchg = &op->data.offer.exchange;
 
 	if (xchg->spi != ctx->offer.local.spi) {
@@ -596,9 +599,6 @@ key_exchange_decapsulate(struct kyrka *ctx, struct kyrka_offer *op, time_t now)
 		kyrka_logmsg(ctx, "offer mismatching, trying re-sync");
 		return;
 	}
-
-	if (op->hdr.spi != ctx->offer.remote.spi)
-		return;
 
 	if (!(ctx->offer.flags & KYRKA_OFFER_INCLUDE_KEM_PK))
 		return;
