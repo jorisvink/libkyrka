@@ -35,6 +35,9 @@ static int	key_make_active(struct kyrka_sa *, struct kyrka_xchg_info *,
 
 static void	key_shroud_manage(struct kyrka *);
 
+static void	key_spi_history_add(struct kyrka *, u_int32_t);
+static int	key_spi_history_seen(struct kyrka *, u_int32_t);
+
 static void	key_exchange(struct kyrka *, struct kyrka_offer *);
 static void	key_exchange_encapsulate(struct kyrka *,
 		    struct kyrka_offer *, time_t);
@@ -593,10 +596,16 @@ key_exchange_decapsulate(struct kyrka *ctx, struct kyrka_offer *op, time_t now)
 	xchg = &op->data.offer.exchange;
 
 	if (xchg->spi != ctx->offer.local.spi) {
+		if (key_spi_history_seen(ctx, xchg->spi) == -1)
+			return;
+
+		key_spi_history_add(ctx, xchg->spi);
 		key_offer_clear(ctx);
+
 		ctx->offer.force = 1;
 		ctx->offer.next = now + 5;
 		kyrka_logmsg(ctx, "offer mismatching, trying re-sync");
+
 		return;
 	}
 
@@ -725,6 +734,7 @@ key_offer_clear(struct kyrka *ctx)
 	PRECOND(ctx != NULL);
 	PRECOND(ctx->offer.local.spi != 0);
 
+	key_spi_history_add(ctx, ctx->offer.local.spi);
 	nyfe_mem_zero(&ctx->offer, sizeof(ctx->offer));
 
 	ctx->offer.default_ttl = 15;
@@ -735,6 +745,40 @@ key_offer_clear(struct kyrka *ctx)
 		evt.exchange.reason = "key offer cleared";
 		ctx->event(ctx, &evt, ctx->udata);
 	}
+}
+
+/*
+ * Remember a local spi we used for an exchange.
+ */
+static void
+key_spi_history_add(struct kyrka *ctx, u_int32_t spi)
+{
+	PRECOND(ctx != NULL);
+
+	ctx->spi_history[ctx->spi_history_idx % KYRKA_SPI_HISTORY] = spi;
+	ctx->spi_history_idx++;
+}
+
+/*
+ * Check if we recently saw the given SPI for an exchange.
+ * Returns -1 if we saw it, otherwise 0.
+ */
+static int
+key_spi_history_seen(struct kyrka *ctx, u_int32_t spi)
+{
+	u_int32_t	idx;
+
+	PRECOND(ctx != NULL);
+
+	if (spi == 0)
+		return (0);
+
+	for (idx = 0; idx < KYRKA_SPI_HISTORY; idx++) {
+		if (ctx->spi_history[idx] == spi)
+			return (-1);
+	}
+
+	return (0);
 }
 
 /*

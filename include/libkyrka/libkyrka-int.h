@@ -304,6 +304,9 @@ struct kyrka_ifc {
 #define KYRKA_OFFER_KEM_FRAGMENTS_DONE	\
     ((1 << KYRKA_OFFER_KEM_FRAGMENTS) - 1)
 
+/* Number of previous SPIs for key offers we keep. */
+#define KYRKA_SPI_HISTORY		4
+
 /* This is ML-KEM-1024 its pubkey len / fragments. */
 #define KYRKA_OFFER_KEM_FRAGMENT_SIZE		\
     (KYRKA_MLKEM_1024_PUBLICKEYBYTES / KYRKA_OFFER_KEM_FRAGMENTS)
@@ -530,6 +533,10 @@ struct kyrka {
 
 	/* Last received offer spi. */
 	u_int32_t			last_spi;
+
+	/* Recently used local offer spis. */
+	u_int32_t			spi_history_idx;
+	u_int32_t			spi_history[KYRKA_SPI_HISTORY];
 
 	/* Last error that occurred in the context. */
 	u_int32_t			last_error;
