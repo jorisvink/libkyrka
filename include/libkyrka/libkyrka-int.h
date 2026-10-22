@@ -23,6 +23,7 @@
 #include <sys/endian.h>
 #endif
 
+#include <time.h>
 #include <stdlib.h>
 
 #include "libkyrka.h"
@@ -686,6 +687,7 @@ int	kyrka_key_load_from_path(struct kyrka *,
 	    const char *, u_int8_t *, size_t);
 
 /* src/kyrka.c */
+void	kyrka_gettime(struct timespec *);
 void	kyrka_mask(KYRKA *, u_int8_t *, size_t);
 void	kyrka_logmsg(KYRKA *, const char *, ...);
 int	kyrka_file_open(struct kyrka *, const char *);

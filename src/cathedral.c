@@ -335,8 +335,7 @@ cathedral_send_offer(struct kyrka *ctx, u_int64_t magic)
 	    magic == KYRKA_CATHEDRAL_LITURGY_MAGIC);
 
 	if (ctx->flags & KYRKA_FLAG_USE_SHROUD) {
-		/* XXX */
-		(void)clock_gettime(CLOCK_MONOTONIC, &ts);
+		kyrka_gettime(&ts);
 
 		if (!(ctx->shroud.flags & KYRKA_SHROUD_CATHEDRAL_KEY)) {
 			kyrka_shroud_kdf(ctx,
@@ -637,7 +636,7 @@ cathedral_ambry_unwrap(struct kyrka *ctx, struct kyrka_ambry_offer *ambry)
 	if (ctx->cathedral.ambry != 0)
 		ctx->flags |= KYRKA_FLAG_AMBRY_NEGOTIATION;
 
-	(void)clock_gettime(CLOCK_MONOTONIC, &ts);
+	kyrka_gettime(&ts);
 
 	ctx->cathedral.ambry_switch = 1;
 	ctx->cathedral.ambry_recv = ts.tv_sec;

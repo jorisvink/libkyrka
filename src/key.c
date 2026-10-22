@@ -68,8 +68,7 @@ kyrka_key_manage(struct kyrka *ctx)
 		return (-1);
 	}
 
-	/* XXX */
-	(void)clock_gettime(CLOCK_MONOTONIC, &ts);
+	kyrka_gettime(&ts);
 
 	if (ctx->flags & KYRKA_FLAG_USE_SHROUD)
 		key_shroud_manage(ctx);
@@ -488,7 +487,7 @@ key_exchange(struct kyrka *ctx, struct kyrka_offer *op)
 		return;
 	}
 
-	(void)clock_gettime(CLOCK_MONOTONIC, &ts);
+	kyrka_gettime(&ts);
 
 	switch (exchange->state) {
 	case KYRKA_OFFER_STATE_KEM_PK_FRAGMENT:

@@ -486,6 +486,21 @@ kyrka_logmsg(KYRKA *ctx, const char *fmt, ...)
 }
 
 /*
+ * Obtain current uptime.
+ */
+void
+kyrka_gettime(struct timespec *ts)
+{
+	PRECOND(ts != NULL);
+
+#if defined(__linux__)
+	(void)clock_gettime(CLOCK_BOOTTIME, ts);
+#else
+	(void)clock_gettime(CLOCK_MONOTONIC, ts);
+#endif
+}
+
+/*
  * An unrecoverable error occurred, we will perform an emergency erase
  * and call the application specified callback (if any).
  */
