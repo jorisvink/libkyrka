@@ -54,7 +54,7 @@ def packet_recv(ctx, conn):
     data = conn.recv(1500)
 
     try:
-        ctx.purgatory_input(data)
+        ctx.purgatory_input(data, libkyrka.KYRKA_PACKET_SHROUD_PEER)
     except Exception as e:
         print(f"purgatory_input: {e}")
 
@@ -115,6 +115,7 @@ while True:
         last = now
 
         try:
-            ctx.heaven_input(b"Blessed sanctum, save us")
+            ctx.heaven_input(b"Blessed sanctum, save us",
+                libkyrka.KYRKA_PACKET_SHROUD_CATHEDRAL)
         except Exception as e:
             print(f"heaven input {e}")

@@ -125,71 +125,6 @@ kyrka_mtu_size(KYRKA *ctx, u_int16_t mtu)
 }
 
 /*
- * Copy all key material that is not session keys from one context to another.
- *
- * This means we copy if present:
- *	- kek
- *	- cathedral secret
- *	- shared symmetrical secret
- */
-int
-kyrka_key_material_copy(KYRKA *ctx, KYRKA *src)
-{
-	if (ctx == NULL)
-		return (-1);
-
-	if (src == NULL) {
-		ctx->last_error = KYRKA_ERROR_PARAMETER;
-		return (-1);
-	}
-
-	if (src->flags & KYRKA_FLAG_DEVICE_KEK) {
-		kyrka_mask(src, src->cfg.kek, sizeof(src->cfg.kek));
-		nyfe_memcpy(ctx->cfg.kek, src->cfg.kek, sizeof(src->cfg.kek));
-		kyrka_mask(ctx, ctx->cfg.kek, sizeof(ctx->cfg.kek));
-		kyrka_mask(src, src->cfg.kek, sizeof(src->cfg.kek));
-
-		ctx->flags |= KYRKA_FLAG_DEVICE_KEK;
-	}
-
-	if (src->flags & KYRKA_FLAG_SECRET_SET) {
-		kyrka_mask(src, src->cfg.secret, sizeof(src->cfg.secret));
-		nyfe_memcpy(ctx->cfg.secret, src->cfg.secret,
-		    sizeof(src->cfg.secret));
-		kyrka_mask(ctx, ctx->cfg.secret, sizeof(ctx->cfg.secret));
-		kyrka_mask(src, src->cfg.secret, sizeof(src->cfg.secret));
-
-		ctx->flags |= KYRKA_FLAG_SECRET_SET;
-	}
-
-	if (src->flags & KYRKA_FLAG_CATHEDRAL_SECRET) {
-		kyrka_mask(src, src->cathedral.secret,
-		    sizeof(src->cathedral.secret));
-		nyfe_memcpy(ctx->cathedral.secret, src->cathedral.secret,
-		    sizeof(src->cathedral.secret));
-		kyrka_mask(ctx, ctx->cathedral.secret,
-		    sizeof(ctx->cathedral.secret));
-		kyrka_mask(src, src->cathedral.secret,
-		    sizeof(src->cathedral.secret));
-
-		ctx->flags |= KYRKA_FLAG_CATHEDRAL_SECRET;
-	}
-
-	if (src->flags & KYRKA_FLAG_CATHEDRAL_SIGNING_KEY) {
-		kyrka_mask(src, ctx->cathedral.sk,
-		    sizeof(src->cathedral.sk));
-		nyfe_memcpy(ctx->cathedral.sk, src->cathedral.sk,
-		    sizeof(src->cathedral.sk));
-		kyrka_mask(src, ctx->cathedral.sk,
-		    sizeof(src->cathedral.sk));
-
-		ctx->flags |= KYRKA_FLAG_CATHEDRAL_SIGNING_KEY;
-	}
-
-	return (0);
-}
-
-/*
  * Load a shared secret inside of the given path into our context.
  */
 int
@@ -364,6 +299,9 @@ kyrka_shroud_enable(KYRKA *ctx)
  *
  * If you get this wrong, at worst the receiving party will not be able
  * to unshroud the packet, but no meta-data is leaked.
+ *
+ * Do not use this function if you are using commixtion as commixtion
+ * requires your packet to travel *through* the cathedrals.
  */
 int
 kyrka_p2p_active(KYRKA *ctx, int active)
@@ -407,6 +345,12 @@ void
 kyrka_ctx_free(struct kyrka *ctx)
 {
 	if (ctx != NULL) {
+		if (ctx->tx.cipher != NULL)
+			kyrka_cipher_cleanup(ctx->tx.cipher);
+
+		if (ctx->rx.cipher != NULL)
+			kyrka_cipher_cleanup(ctx->rx.cipher);
+
 		nyfe_zeroize(ctx, sizeof(*ctx));
 		free(ctx);
 	}
@@ -539,6 +483,21 @@ kyrka_logmsg(KYRKA *ctx, const char *fmt, ...)
 	evt.logmsg.log = msg;
 
 	ctx->event(ctx, &evt, ctx->udata);
+}
+
+/*
+ * Obtain current uptime.
+ */
+void
+kyrka_gettime(struct timespec *ts)
+{
+	PRECOND(ts != NULL);
+
+#if defined(__linux__)
+	(void)clock_gettime(CLOCK_BOOTTIME, ts);
+#else
+	(void)clock_gettime(CLOCK_MONOTONIC, ts);
+#endif
 }
 
 /*

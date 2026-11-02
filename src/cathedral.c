@@ -194,7 +194,7 @@ kyrka_cathedral_nat_detection(struct kyrka *ctx)
  * to send it to the cathedral by whatever means.
  *
  * The given peers argument is either NULL to be interested in all
- * peers, or an array of 256 bytes indicating which peers one is
+ * peers, or an array of 255 bytes indicating which peers one is
  * interested in.
  */
 int
@@ -335,8 +335,7 @@ cathedral_send_offer(struct kyrka *ctx, u_int64_t magic)
 	    magic == KYRKA_CATHEDRAL_LITURGY_MAGIC);
 
 	if (ctx->flags & KYRKA_FLAG_USE_SHROUD) {
-		/* XXX */
-		(void)clock_gettime(CLOCK_MONOTONIC, &ts);
+		kyrka_gettime(&ts);
 
 		if (!(ctx->shroud.flags & KYRKA_SHROUD_CATHEDRAL_KEY)) {
 			kyrka_shroud_kdf(ctx,
@@ -561,6 +560,7 @@ cathedral_ambry_recv(struct kyrka *ctx, struct kyrka_offer *op)
 	}
 
 	cathedral_ambry_unwrap(ctx, &data->offer.ambry);
+	nyfe_mem_zero(&data->offer.ambry, sizeof(data->offer.ambry));
 }
 
 /*
@@ -630,11 +630,13 @@ cathedral_ambry_unwrap(struct kyrka *ctx, struct kyrka_ambry_offer *ambry)
 		return;
 	}
 
+	kyrka_key_offer_reset(ctx);
 	ctx->flags |= KYRKA_FLAG_SECRET_SET;
+
 	if (ctx->cathedral.ambry != 0)
 		ctx->flags |= KYRKA_FLAG_AMBRY_NEGOTIATION;
 
-	(void)clock_gettime(CLOCK_MONOTONIC, &ts);
+	kyrka_gettime(&ts);
 
 	ctx->cathedral.ambry_switch = 1;
 	ctx->cathedral.ambry_recv = ts.tv_sec;

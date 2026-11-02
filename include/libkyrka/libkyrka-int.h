@@ -23,6 +23,7 @@
 #include <sys/endian.h>
 #endif
 
+#include <time.h>
 #include <stdlib.h>
 
 #include "libkyrka.h"
@@ -304,6 +305,9 @@ struct kyrka_ifc {
 #define KYRKA_OFFER_KEM_FRAGMENTS_DONE	\
     ((1 << KYRKA_OFFER_KEM_FRAGMENTS) - 1)
 
+/* Number of previous SPIs for key offers we keep. */
+#define KYRKA_SPI_HISTORY		4
+
 /* This is ML-KEM-1024 its pubkey len / fragments. */
 #define KYRKA_OFFER_KEM_FRAGMENT_SIZE		\
     (KYRKA_MLKEM_1024_PUBLICKEYBYTES / KYRKA_OFFER_KEM_FRAGMENTS)
@@ -531,6 +535,10 @@ struct kyrka {
 	/* Last received offer spi. */
 	u_int32_t			last_spi;
 
+	/* Recently used local offer spis. */
+	u_int32_t			spi_history_idx;
+	u_int32_t			spi_history[KYRKA_SPI_HISTORY];
+
 	/* Last error that occurred in the context. */
 	u_int32_t			last_error;
 
@@ -554,6 +562,7 @@ struct kyrka {
 		int			force;
 		u_int32_t		flags;
 		u_int64_t		pulse;
+		u_int32_t		pk_spi;
 		u_int8_t		pk_frag;
 		u_int8_t		ct_frag;
 		u_int32_t		default_ttl;
@@ -672,11 +681,13 @@ void	*kyrka_packet_tail(struct kyrka_packet *);
 int	kyrka_packet_crypto_checklen(struct kyrka *, struct kyrka_packet *);
 
 /* src/key.c */
+void	kyrka_key_offer_reset(struct kyrka *);
 void	kyrka_key_offer_decrypt(struct kyrka *, struct kyrka_packet *);
 int	kyrka_key_load_from_path(struct kyrka *,
 	    const char *, u_int8_t *, size_t);
 
 /* src/kyrka.c */
+void	kyrka_gettime(struct timespec *);
 void	kyrka_mask(KYRKA *, u_int8_t *, size_t);
 void	kyrka_logmsg(KYRKA *, const char *, ...);
 int	kyrka_file_open(struct kyrka *, const char *);

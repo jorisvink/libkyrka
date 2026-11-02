@@ -212,9 +212,12 @@ static struct integer constants_misc[] = {
  */
 static struct integer constants_errors[] = {
 	CONSTANT(KYRKA_ERROR_NONE),
-	CONSTANT(KYRKA_ERROR_NO_KEK),
 	CONSTANT(KYRKA_ERROR_SYSTEM),
+	CONSTANT(KYRKA_ERROR_NO_KEK),
+	CONSTANT(KYRKA_ERROR_NO_COSK),
+	CONSTANT(KYRKA_ERROR_TIMEOUT),
 	CONSTANT(KYRKA_ERROR_INTERNAL),
+	CONSTANT(KYRKA_ERROR_MTU_SIZE),
 	CONSTANT(KYRKA_ERROR_PARAMETER),
 	CONSTANT(KYRKA_ERROR_INTEGRITY),
 	CONSTANT(KYRKA_ERROR_NO_TX_KEY),
@@ -225,6 +228,7 @@ static struct integer constants_errors[] = {
 	CONSTANT(KYRKA_ERROR_NO_CALLBACK),
 	CONSTANT(KYRKA_ERROR_PACKET_ERROR),
 	CONSTANT(KYRKA_ERROR_CATHEDRAL_CONFIG),
+	CONSTANT(KYRKA_ERROR_SHROUD_NO_KEYS),
 	{ NULL, -1, NULL },
 };
 
@@ -248,6 +252,7 @@ PyInit_libkyrka(void)
 		return (NULL);
 	}
 
+	PyType_Ready(&pykyrka_type);
 	kyrka_fatal_callback(python_fatal);
 
 	return (mod);
@@ -730,7 +735,7 @@ pykyrka_device_kek_load(PyObject *self, PyObject *args)
 static PyObject *
 pykyrka_p2p_active(PyObject *self, PyObject *args)
 {
-	int			val;
+	u_int8_t		val;
 	struct pykyrka		*ctx;
 
 	PRECOND(self != NULL);
@@ -1016,7 +1021,6 @@ python_callback_run(struct pykyrka *ctx, struct callback *cb,
 	PRECOND(ctx != NULL);
 	PRECOND(cb != NULL);
 	PRECOND(data != NULL);
-	PRECOND(len > 0);
 
 	if (cb->cb == NULL)
 		return;
@@ -1311,7 +1315,8 @@ python_kyrka_exception(u_int64_t error)
 	}
 
 	if (constants_errors[i].name == NULL) {
-		PyErr_Format(PyExc_RuntimeError, "error '%d' not found", error);
+		PyErr_Format(PyExc_RuntimeError,
+		    "error '%" PRIu64 "' not found", error);
 	} else {
 		PyErr_SetObject(PyExc_RuntimeError, constants_errors[i].obj);
 	}

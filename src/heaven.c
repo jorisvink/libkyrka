@@ -87,8 +87,7 @@ kyrka_heaven_input(struct kyrka *ctx, struct kyrka_packet *pkt)
 	if (kyrka_shroud_has_key(ctx, KYRKA_SHROUD_PEER_KEY) == -1)
 		return (-1);
 
-	/* XXX */
-	(void)clock_gettime(CLOCK_MONOTONIC, &ts);
+	kyrka_gettime(&ts);
 
 	if (ctx->tx.seqnr >= KYRKA_SA_PACKET_HARD ||
 	    (ts.tv_sec > ctx->tx.age &&

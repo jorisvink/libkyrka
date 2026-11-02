@@ -45,8 +45,7 @@ SRC=	src/kyrka.c \
 	src/offer.c \
 	src/shroud.c \
 	src/packet.c \
-	src/purgatory.c \
-	src/vicar.c
+	src/purgatory.c
 
 ifeq ("$(SANITIZE)", "1")
 	CFLAGS+=-fsanitize=address,undefined
@@ -54,11 +53,6 @@ endif
 
 ifeq ("$(COVERAGE)", "1")
 	CFLAGS+=-fprofile-arcs -ftest-coverage
-endif
-
-ifneq ("$(KYRKA_NO_INRI_API)", "1")
-	SRC+=src/inri.c
-	CFLAGS+=-DKYRKA_INRI_API
 endif
 
 ifeq ("$(OSNAME)", "")

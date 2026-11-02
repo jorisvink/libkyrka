@@ -35,6 +35,9 @@ static int	key_make_active(struct kyrka_sa *, struct kyrka_xchg_info *,
 
 static void	key_shroud_manage(struct kyrka *);
 
+static void	key_spi_history_add(struct kyrka *, u_int32_t);
+static int	key_spi_history_seen(struct kyrka *, u_int32_t);
+
 static void	key_exchange(struct kyrka *, struct kyrka_offer *);
 static void	key_exchange_encapsulate(struct kyrka *,
 		    struct kyrka_offer *, time_t);
@@ -65,8 +68,7 @@ kyrka_key_manage(struct kyrka *ctx)
 		return (-1);
 	}
 
-	/* XXX */
-	(void)clock_gettime(CLOCK_MONOTONIC, &ts);
+	kyrka_gettime(&ts);
 
 	if (ctx->flags & KYRKA_FLAG_USE_SHROUD)
 		key_shroud_manage(ctx);
@@ -79,8 +81,7 @@ kyrka_key_manage(struct kyrka *ctx)
 		kyrka_logmsg(ctx, "unable to renegotiate with peer "
 		    "75 seconds after ambry swap, clearing keys");
 
-		if (ctx->offer.local.spi != 0)
-			key_offer_clear(ctx);
+		kyrka_key_offer_reset(ctx);
 
 		if (ctx->rx.cipher != NULL)
 			kyrka_cipher_cleanup(ctx->rx.cipher);
@@ -95,8 +96,10 @@ kyrka_key_manage(struct kyrka *ctx)
 		if (ctx->offer.local.spi == ctx->rx.spi && ctx->rx.pkt > 0) {
 			ctx->flags &= ~KYRKA_FLAG_AMBRY_NEGOTIATION;
 			ctx->offer.flags &= ~KYRKA_OFFER_INCLUDE_KEM_CT;
-			if (ctx->offer.flags == 0)
-				key_offer_clear(ctx);
+		}
+
+		if (ctx->offer.flags == 0) {
+			key_offer_clear(ctx);
 		} else if ((u_int64_t)ts.tv_sec >= ctx->offer.pulse) {
 			if (key_offer_send(ctx, ts.tv_sec) == -1)
 				return (-1);
@@ -253,6 +256,18 @@ key_offer_check(struct kyrka *ctx, u_int64_t now)
 }
 
 /*
+ * Reset our current in-flight offer.
+ */
+void
+kyrka_key_offer_reset(struct kyrka *ctx)
+{
+	PRECOND(ctx != NULL);
+
+	if (ctx->offer.local.spi != 0)
+		key_offer_clear(ctx);
+}
+
+/*
  * Generate a new key that can be offered to the other side.
  */
 static int
@@ -312,6 +327,7 @@ static int
 key_offer_send(struct kyrka *ctx, u_int64_t now)
 {
 	u_int8_t	frag;
+	int		pending;
 
 	PRECOND(ctx != NULL);
 	PRECOND(ctx->purgatory.send != NULL);
@@ -336,9 +352,14 @@ key_offer_send(struct kyrka *ctx, u_int64_t now)
 	}
 
 	if (ctx->offer.ttl == 0) {
+		if (ctx->offer.flags & KYRKA_OFFER_INCLUDE_KEM_PK)
+			pending = 1;
+		else
+			pending = 0;
+
 		key_offer_clear(ctx);
 
-		if (ctx->cathedral.ambry_switch) {
+		if (pending || ctx->cathedral.ambry_switch) {
 			ctx->offer.force = 1;
 			ctx->offer.next = now + 10;
 		}
@@ -443,15 +464,11 @@ key_offer_send_fragment(struct kyrka *ctx, int which, u_int8_t frag)
  *
  *	When a side performs encapsulation it will derive a fresh
  *	RX session key using all of that key material and install the
- *	key as a pending RX key.
+ *	key as the RX key.
  *
  *	When a side performs decapsulation it will derive a fresh
  *	TX session key using all of that key material and install the
  *	key as the active TX key.
- *
- * In both cases this results in unique shared secrets for x25519
- * and ML-KEM-1024 in each direction, while allowing us to gracefully
- * install pending RX keys so that we do not miss a beat.
  */
 static void
 key_exchange(struct kyrka *ctx, struct kyrka_offer *op)
@@ -470,7 +487,7 @@ key_exchange(struct kyrka *ctx, struct kyrka_offer *op)
 		return;
 	}
 
-	(void)clock_gettime(CLOCK_MONOTONIC, &ts);
+	kyrka_gettime(&ts);
 
 	switch (exchange->state) {
 	case KYRKA_OFFER_STATE_KEM_PK_FRAGMENT:
@@ -483,8 +500,6 @@ key_exchange(struct kyrka *ctx, struct kyrka_offer *op)
 		kyrka_logmsg(ctx, "ignoring unknown offer packet");
 		break;
 	}
-
-	ctx->peer_id = exchange->id;
 }
 
 /*
@@ -527,6 +542,12 @@ key_exchange_encapsulate(struct kyrka *ctx, struct kyrka_offer *op, time_t now)
 	if (xchg->fragment >= KYRKA_OFFER_KEM_FRAGMENTS)
 		return;
 
+	if (ctx->offer.pk_frag != 0 && xchg->spi != ctx->offer.pk_spi)
+		ctx->offer.pk_frag = 0;
+
+	if (ctx->offer.pk_frag == 0)
+		ctx->offer.pk_spi = xchg->spi;
+
 	if (ctx->offer.pk_frag & (1 << xchg->fragment))
 		return;
 
@@ -543,7 +564,9 @@ key_exchange_encapsulate(struct kyrka *ctx, struct kyrka_offer *op, time_t now)
 	ctx->offer.ttl = ctx->offer.default_ttl;
 	ctx->offer.flags |= KYRKA_OFFER_INCLUDE_KEM_CT;
 
+	ctx->peer_id = xchg->id;
 	ctx->last_spi = xchg->spi;
+
 	kyrka_mlkem1024_encapsulate(&ctx->offer.remote.kem);
 	key_exchange_finalize(ctx, op, now, KYRKA_KEY_DIRECTION_RX);
 }
@@ -566,23 +589,32 @@ key_exchange_decapsulate(struct kyrka *ctx, struct kyrka_offer *op, time_t now)
 	if (ctx->offer.local.spi == 0 || ctx->offer.remote.spi == 0)
 		return;
 
+	if (op->hdr.spi != ctx->offer.remote.spi)
+		return;
+
 	xchg = &op->data.offer.exchange;
 
 	if (xchg->spi != ctx->offer.local.spi) {
+		if (key_spi_history_seen(ctx, xchg->spi) == -1)
+			return;
+
+		key_spi_history_add(ctx, xchg->spi);
 		key_offer_clear(ctx);
+
 		ctx->offer.force = 1;
 		ctx->offer.next = now + 5;
 		kyrka_logmsg(ctx, "offer mismatching, trying re-sync");
+
 		return;
 	}
 
 	if (!(ctx->offer.flags & KYRKA_OFFER_INCLUDE_KEM_PK))
 		return;
 
-	if (ctx->offer.ct_frag & (1 << xchg->fragment))
+	if (xchg->fragment >= KYRKA_OFFER_KEM_FRAGMENTS)
 		return;
 
-	if (xchg->fragment >= KYRKA_OFFER_KEM_FRAGMENTS)
+	if (ctx->offer.ct_frag & (1 << xchg->fragment))
 		return;
 
 	off = xchg->fragment * KYRKA_OFFER_KEM_FRAGMENT_SIZE;
@@ -701,6 +733,7 @@ key_offer_clear(struct kyrka *ctx)
 	PRECOND(ctx != NULL);
 	PRECOND(ctx->offer.local.spi != 0);
 
+	key_spi_history_add(ctx, ctx->offer.local.spi);
 	nyfe_mem_zero(&ctx->offer, sizeof(ctx->offer));
 
 	ctx->offer.default_ttl = 15;
@@ -711,6 +744,40 @@ key_offer_clear(struct kyrka *ctx)
 		evt.exchange.reason = "key offer cleared";
 		ctx->event(ctx, &evt, ctx->udata);
 	}
+}
+
+/*
+ * Remember a local spi we used for an exchange.
+ */
+static void
+key_spi_history_add(struct kyrka *ctx, u_int32_t spi)
+{
+	PRECOND(ctx != NULL);
+
+	ctx->spi_history[ctx->spi_history_idx % KYRKA_SPI_HISTORY] = spi;
+	ctx->spi_history_idx++;
+}
+
+/*
+ * Check if we recently saw the given SPI for an exchange.
+ * Returns -1 if we saw it, otherwise 0.
+ */
+static int
+key_spi_history_seen(struct kyrka *ctx, u_int32_t spi)
+{
+	u_int32_t	idx;
+
+	PRECOND(ctx != NULL);
+
+	if (spi == 0)
+		return (0);
+
+	for (idx = 0; idx < KYRKA_SPI_HISTORY; idx++) {
+		if (ctx->spi_history[idx] == spi)
+			return (-1);
+	}
+
+	return (0);
 }
 
 /*
