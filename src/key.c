@@ -69,6 +69,7 @@ kyrka_key_manage(struct kyrka *ctx)
 	}
 
 	kyrka_gettime(&ts);
+	kyrka_offer_prune(ctx);
 
 	if (ctx->flags & KYRKA_FLAG_USE_SHROUD)
 		key_shroud_manage(ctx);
@@ -144,6 +145,18 @@ kyrka_key_offer_decrypt(struct kyrka *ctx, struct kyrka_packet *pkt)
 
 	if (kyrka_offer_decrypt(&okm, offer, 10) == -1)
 		goto cleanup;
+
+	if (kyrka_offer_recall(ctx, offer) == -1) {
+		kyrka_logmsg(ctx, "rejecting duplicate offer");
+		goto cleanup;
+	}
+
+	if (kyrka_offer_record(ctx, offer) == -1) {
+		kyrka_logmsg(ctx,
+		    "failed to record offer %02x seen from peer",
+		    offer->data.type);
+		goto cleanup;
+	}
 
 	if (offer->data.type != KYRKA_OFFER_TYPE_EXCHANGE)
 		goto cleanup;
@@ -427,6 +440,12 @@ key_offer_send_fragment(struct kyrka *ctx, int which, u_int8_t frag)
 		exchange->state = KYRKA_OFFER_STATE_KEM_PK_FRAGMENT;
 		nyfe_memcpy(exchange->kem, &ctx->offer.local.kem.pk[offset],
 		    KYRKA_OFFER_KEM_FRAGMENT_SIZE);
+	}
+
+	if (kyrka_offer_record(ctx, op) == -1) {
+		nyfe_zeroize(&okm, sizeof(okm));
+		ctx->last_error = KYRKA_ERROR_INTERNAL;
+		return (-1);
 	}
 
 	if (kyrka_offer_encrypt(&okm, op) == -1) {

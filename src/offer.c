@@ -18,6 +18,7 @@
 
 #include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
 #include <time.h>
 
 #include "libkyrka-int.h"
@@ -189,4 +190,68 @@ kyrka_offer_nonce(u_int8_t *nonce, size_t nonce_len)
 
 	nyfe_mem_zero(nonce, nonce_len);
 	nonce[nonce_len - 1] = 0x01;
+}
+
+/*
+ * Prune our offer cache of entries that should be expired.
+ */
+void
+kyrka_offer_prune(struct kyrka *ctx)
+{
+	u_int64_t			now;
+	struct kyrka_offer_entry	*entry, *next;
+
+	PRECOND(ctx != NULL);
+
+	now = kyrka_gettime_ms();
+
+	for (entry = LIST_FIRST(&ctx->offers); entry != NULL; entry = next) {
+		next = LIST_NEXT(entry, list);
+
+		if ((now - entry->age) >= KYRKA_OFFER_CACHE_MAX_AGE) {
+			LIST_REMOVE(entry, list);
+			free(entry);
+		}
+	}
+}
+
+/*
+ * Recall if the given offer has been seen before from our cached list.
+ */
+int
+kyrka_offer_recall(struct kyrka *ctx, struct kyrka_offer *op)
+{
+	struct kyrka_offer_entry	*entry;
+
+	PRECOND(ctx != NULL);
+	PRECOND(op != NULL);
+
+	LIST_FOREACH(entry, &ctx->offers, list) {
+		if (!memcmp(op->extra.sig, entry->sig, sizeof(entry->sig)))
+			return (-1);
+	}
+
+	return (0);
+}
+
+/*
+ * Record an offer that we just received in our offer cache.
+ */
+int
+kyrka_offer_record(struct kyrka *ctx, struct kyrka_offer *op)
+{
+	struct kyrka_offer_entry	*entry;
+
+	PRECOND(ctx != NULL);
+	PRECOND(op != NULL);
+
+	if ((entry = calloc(1, sizeof(*entry))) == NULL)
+		return (-1);
+
+	entry->age = kyrka_gettime_ms();
+	memcpy(entry->sig, op->extra.sig, sizeof(op->extra.sig));
+
+	LIST_INSERT_HEAD(&ctx->offers, entry, list);
+
+	return (0);
 }

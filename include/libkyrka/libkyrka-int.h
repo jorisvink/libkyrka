@@ -89,7 +89,7 @@
 #define KYRKA_SA_LIFETIME_HARD			3600
 
 /* The half-time window in which offers are valid. */
-#define KYRKA_OFFER_VALID			5
+#define KYRKA_OFFER_VALID			10
 
 /* The magic for a key offer packet (SACRAMNT). */
 #define KYRKA_KEY_OFFER_MAGIC			0x53414352414D4E54
@@ -183,6 +183,20 @@
 #define KYRKA_FLOCK_DOMAIN_BITS		8
 #define KYRKA_FLOCK_DOMAINS		(1 << KYRKA_FLOCK_DOMAIN_BITS)
 #define KYRKA_FLOCK_DOMAIN_MASK		(KYRKA_FLOCK_DOMAINS - 1)
+
+/* The number of ms before we prune an entry from offerdb list */
+#define KYRKA_OFFER_CACHE_MAX_AGE	(((KYRKA_OFFER_VALID * 2) + 5) * 1000)
+
+/*
+ * Data structures to keep track of sent/received offers.
+ */
+struct kyrka_offer_entry {
+	u_int64_t			age;
+	u_int8_t			sig[KYRKA_ED25519_SIGN_LENGTH];
+	LIST_ENTRY(kyrka_offer_entry)	list;
+};
+
+LIST_HEAD(kyrka_offer_cache, kyrka_offer_entry);
 
 /*
  * The ambry AAD data.
@@ -553,6 +567,9 @@ struct kyrka {
 	struct kyrka_ifc		heaven;
 	struct kyrka_ifc		purgatory;
 
+	/* The offer cache. */
+	struct kyrka_offer_cache	offers;
+
 	/* Current key offer. */
 	struct {
 		struct kyrka_xchg_info	local;
@@ -692,9 +709,14 @@ void	kyrka_mask(KYRKA *, u_int8_t *, size_t);
 void	kyrka_logmsg(KYRKA *, const char *, ...);
 int	kyrka_file_open(struct kyrka *, const char *);
 
+u_int64_t	kyrka_gettime_ms(void);
+
 /* src/offer.c */
+void	kyrka_offer_prune(struct kyrka *);
 void	kyrka_offer_nonce(u_int8_t *, size_t);
 int	kyrka_offer_sign(struct kyrka *, struct kyrka_offer *);
+int	kyrka_offer_recall(struct kyrka *, struct kyrka_offer *);
+int	kyrka_offer_record(struct kyrka *, struct kyrka_offer *);
 int	kyrka_offer_encrypt(struct kyrka_key *, struct kyrka_offer *);
 int	kyrka_offer_decrypt(struct kyrka_key *, struct kyrka_offer *, int);
 

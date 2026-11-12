@@ -101,6 +101,8 @@ kyrka_ctx_alloc(void (*event)(struct kyrka *, union kyrka_event *, void *),
 	ctx->udata = udata;
 	ctx->event = event;
 
+	LIST_INIT(&ctx->offers);
+
 	return (ctx);
 }
 
@@ -344,12 +346,19 @@ kyrka_emergency_erase(void)
 void
 kyrka_ctx_free(struct kyrka *ctx)
 {
+	struct kyrka_offer_entry	*entry;
+
 	if (ctx != NULL) {
 		if (ctx->tx.cipher != NULL)
 			kyrka_cipher_cleanup(ctx->tx.cipher);
 
 		if (ctx->rx.cipher != NULL)
 			kyrka_cipher_cleanup(ctx->rx.cipher);
+
+		while ((entry = LIST_FIRST(&ctx->offers)) != NULL) {
+			LIST_REMOVE(entry, list);
+			free(entry);
+		}
 
 		nyfe_zeroize(ctx, sizeof(*ctx));
 		free(ctx);
@@ -498,6 +507,23 @@ kyrka_gettime(struct timespec *ts)
 #else
 	(void)clock_gettime(CLOCK_MONOTONIC, ts);
 #endif
+}
+
+/*
+ * Obtain current uptime in milliseconds.
+ */
+u_int64_t
+kyrka_gettime_ms(void)
+{
+	struct timespec		ts;
+
+#if defined(__linux__)
+	(void)clock_gettime(CLOCK_BOOTTIME, &ts);
+#else
+	(void)clock_gettime(CLOCK_MONOTONIC, &ts);
+#endif
+
+	return (((u_int64_t)ts.tv_sec * 1000 + (ts.tv_nsec / 1000000)));
 }
 
 /*

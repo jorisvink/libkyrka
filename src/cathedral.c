@@ -274,6 +274,20 @@ kyrka_cathedral_decrypt(struct kyrka *ctx, struct kyrka_packet *pkt)
 	if (kyrka_offer_decrypt(&okm, offer, CATHEDRAL_OFFER_VALID) == -1)
 		goto cleanup;
 
+	if (kyrka_offer_recall(ctx, offer) == -1) {
+		kyrka_logmsg(ctx,
+		    "duplicate offer %02x seen from cathedral",
+		    offer->data.type);
+		goto cleanup;
+	}
+
+	if (kyrka_offer_record(ctx, offer) == -1) {
+		kyrka_logmsg(ctx,
+		    "failed to record offer %02x seen from cathedral",
+		    offer->data.type);
+		goto cleanup;
+	}
+
 	offer->hdr.spi = be32toh(offer->hdr.spi);
 	if (offer->hdr.spi != ctx->cathedral.identity) {
 		kyrka_logmsg(ctx,
@@ -333,6 +347,8 @@ cathedral_send_offer(struct kyrka *ctx, u_int64_t magic)
 	PRECOND(magic == KYRKA_CATHEDRAL_MAGIC ||
 	    magic == KYRKA_CATHEDRAL_NAT_MAGIC ||
 	    magic == KYRKA_CATHEDRAL_LITURGY_MAGIC);
+
+	kyrka_offer_prune(ctx);
 
 	if (ctx->flags & KYRKA_FLAG_USE_SHROUD) {
 		kyrka_gettime(&ts);
@@ -415,8 +431,19 @@ cathedral_send_offer(struct kyrka *ctx, u_int64_t magic)
 	    op->hdr.seed, sizeof(op->hdr.seed), ctx->cathedral.flock_src, 0);
 	kyrka_mask(ctx, ctx->cathedral.secret, sizeof(ctx->cathedral.secret));
 
-	if (kyrka_offer_sign(ctx, op) == -1 ||
-	    kyrka_offer_encrypt(&okm, op) == -1) {
+	if (kyrka_offer_sign(ctx, op) == -1) {
+		ctx->last_error = KYRKA_ERROR_INTERNAL;
+		nyfe_zeroize(&okm, sizeof(okm));
+		return (-1);
+	}
+
+	if (kyrka_offer_record(ctx, op) == -1) {
+		ctx->last_error = KYRKA_ERROR_INTERNAL;
+		nyfe_zeroize(&okm, sizeof(okm));
+		return (-1);
+	}
+
+	if (kyrka_offer_encrypt(&okm, op) == -1) {
 		ctx->last_error = KYRKA_ERROR_INTERNAL;
 		nyfe_zeroize(&okm, sizeof(okm));
 		return (-1);
