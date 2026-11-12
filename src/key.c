@@ -554,7 +554,20 @@ key_exchange_encapsulate(struct kyrka *ctx, struct kyrka_offer *op, time_t now)
 			if (key_offer_create(ctx, now) == -1)
 				return;
 		} else {
-			return;
+			ctx->offer.pk_frag = 0;
+			ctx->offer.flags &= ~KYRKA_OFFER_INCLUDE_KEM_CT;
+
+			kyrka_random_bytes(ctx->offer.remote.random,
+			    sizeof(ctx->offer.remote.random));
+
+			if (kyrka_asymmetry_keygen(ctx->offer.remote.private,
+			    sizeof(ctx->offer.remote.private),
+			    ctx->offer.remote.public,
+			    sizeof(ctx->offer.remote.public)) == -1) {
+				kyrka_logmsg(ctx, "failed to generate a "
+				    "remote keypair for the key exchange");
+				return;
+			}
 		}
 	}
 
